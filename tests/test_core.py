@@ -29,7 +29,7 @@ def test_evaluation_is_typed():
 
 
 def test_protocols_are_runtime_independent():
-    @dataclass
+    @dataclass(frozen=True)
     class ExampleState(State):
         pass
 

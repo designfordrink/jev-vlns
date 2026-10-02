@@ -4,7 +4,7 @@ from collections.abc import Sequence
 
 from jev_vlns.container_stack.actions import apply_legal_action, legal_actions
 from jev_vlns.container_stack.evaluator import evaluate
-from jev_vlns.container_stack.state import ContainerStackState
+from jev_vlns.container_stack.state import ContainerStackState, MAX_STACK_HEIGHT
 from jev_vlns.selectors.greedy import GreedySelector
 from .destroy import DestroyCandidate, apply_destroy, generate_destroy_candidates
 from .repair import RepairCandidate, apply_repair, generate_repair_candidates
@@ -19,12 +19,7 @@ class VlnsResult:
 
 
 def projected_objective(state: ContainerStackState) -> float:
-    """Estimate total solution cost by greedily completing this arrangement.
-
-    Destroy/repair are hypothetical search operations and therefore do not
-    increment state.moves. The objective is the number of moves already
-    committed plus the moves needed by a deterministic greedy completion.
-    """
+    """Estimate total solution cost by greedily completing this arrangement."""
     selector = GreedySelector()
     working = state
     guard = max(1, len(state.containers) * len(state.stacks) * 20)
@@ -46,15 +41,40 @@ def estimated_objective(state: ContainerStackState) -> float:
     return projected_objective(state)
 
 
+def _available_repairs(
+    partial,
+    repairs: Sequence[RepairCandidate],
+    container_id: str,
+    planned: Sequence[RepairCandidate],
+) -> list[RepairCandidate]:
+    """Return candidates still legal after earlier repair choices."""
+    reserved = {choice.destination_stack for choice in planned}
+    counts = {
+        index: reserved_count
+        for index, reserved_count in (
+            (stack_index, sum(c.destination_stack == stack_index for c in planned))
+            for stack_index in range(len(partial.state.stacks))
+        )
+    }
+    return [
+        candidate
+        for candidate in repairs
+        if candidate.container_id == container_id
+        and len(partial.state.stacks[candidate.destination_stack])
+        + counts[candidate.destination_stack]
+        < MAX_STACK_HEIGHT
+    ]
+
+
 def _repair_randomly(
-    partial_state: ContainerStackState,
+    partial,
     removed: Sequence[str],
     repairs: Sequence[RepairCandidate],
     rng: random.Random,
 ) -> list[RepairCandidate]:
     choices: list[RepairCandidate] = []
     for container_id in removed:
-        options = [c for c in repairs if c.container_id == container_id]
+        options = _available_repairs(partial, repairs, container_id, choices)
         if not options:
             return []
         choices.append(rng.choice(options))
@@ -81,11 +101,7 @@ def random_vlns(
     seed: int = 0,
     iterations: int = 100,
 ) -> VlnsResult:
-    """Random Destroy + Random Repair VLNS baseline.
-
-    The search compares complete-solution cost estimates rather than
-    accumulating hypothetical repair operations into the move count.
-    """
+    """Random Destroy + Random Repair VLNS baseline."""
     rng = random.Random(seed)
     current = initial_state
     current_score = projected_objective(current)
@@ -98,7 +114,7 @@ def random_vlns(
         destroy = rng.choice(destroys)
         partial = apply_destroy(current, destroy)
         repairs = generate_repair_candidates(partial)
-        choices = _repair_randomly(partial.state, partial.removed, repairs, rng)
+        choices = _repair_randomly(partial, partial.removed, repairs, rng)
         if not choices:
             continue
 
@@ -146,11 +162,7 @@ def guided_vlns(
     *,
     iterations: int = 100,
 ) -> VlnsResult:
-    """VLNS with injectable Destroy and Repair selectors.
-
-    This is the experiment harness: selectors may be Random, Greedy or JEV.
-    Candidate generation, legality, objective and execution remain local.
-    """
+    """VLNS with injectable Destroy and Repair selectors."""
     current = initial_state
     current_score = projected_objective(current)
 
@@ -165,10 +177,19 @@ def guided_vlns(
 
         choices: list[RepairCandidate] = []
         for container_id in partial.removed:
+            options = _available_repairs(
+                partial, repairs, container_id, choices
+            )
+            if not options:
+                choices = []
+                break
             choice = repair_selector.select_for_container(
-                partial.state, repairs, container_id
+                partial.state, options, container_id
             )
             choices.append(choice)
+
+        if not choices:
+            continue
 
         repaired = apply_repair(partial, choices)
         candidate_score = projected_objective(repaired)

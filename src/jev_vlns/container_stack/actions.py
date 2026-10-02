@@ -57,6 +57,8 @@ def apply_action(state: ContainerStackState, action: Action) -> ContainerStackSt
     if action.kind == "deliver":
         source = int(action.payload["stack"])
         container_id = str(action.payload["container_id"])
+        if not 0 <= source < len(stacks):
+            raise ValueError("stack index out of range")
         if not stacks[source] or stacks[source][-1] != container_id:
             raise ValueError("container is not the top item of the source stack")
         container = state.container(container_id)
@@ -92,7 +94,13 @@ def apply_action(state: ContainerStackState, action: Action) -> ContainerStackSt
 
 
 def action_is_legal(state: ContainerStackState, action: Action) -> bool:
-    return action.id in {candidate.id for candidate in legal_actions(state)}
+    """Check the complete candidate, not only its ID.
+
+    IDs are useful as stable candidate identifiers, but a caller must not be
+    able to alter a candidate payload while retaining the same ID.
+    """
+
+    return action in legal_actions(state)
 
 
 def apply_legal_action(

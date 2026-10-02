@@ -8,8 +8,8 @@ from jev_vlns.core.action import Action
 class GreedySelector:
     """Container Stack baseline.
 
-    Delivery is preferred. Otherwise choose the move that leaves the
-    destination stack shortest, with deterministic tie-breaking by action ID.
+    Prefer immediate delivery. Otherwise move a container toward its own
+    destination stack when possible, then prefer shorter destination stacks.
     """
 
     def select(
@@ -31,8 +31,20 @@ class GreedySelector:
     @staticmethod
     def _move_score(state: ContainerStackState, action: Action) -> tuple:
         if action.kind == "deliver":
-            return (0, 0, 0)
+            return (0, 0, 0, 0)
+
         destination = int(action.payload["destination"])
         source = int(action.payload["source"])
+        container_id = str(action.payload["container_id"])
+        container = state.container(container_id)
+        targets_own_destination = (
+            state.stack_destinations[destination] == container.destination
+        )
         projected = len(state.stacks[destination]) + 1
-        return (projected, len(state.stacks[source]), destination)
+
+        return (
+            0 if targets_own_destination else 1,
+            projected,
+            len(state.stacks[source]),
+            destination,
+        )
