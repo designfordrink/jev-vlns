@@ -72,7 +72,9 @@ def run_benchmark(
         repair_selector = JevRepairSelector(
             JevSelector(
                 repair_client,
-                random_repair.select_for_container,
+                lambda state, candidates: random_repair.select_for_container(
+                    state, candidates, candidates[0].container_id
+                ),
                 task="repair",
                 question="Choose where to place this removed container.",
                 state_serializer=_jev_state,
