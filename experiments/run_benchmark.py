@@ -18,7 +18,7 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from jev_vlns.evaluation.benchmark import run_matrix
+from jev_vlns.evaluation.benchmark import run_extended_matrix, run_matrix
 
 
 def main() -> int:
@@ -27,6 +27,7 @@ def main() -> int:
                         help="Instance/search seeds to run (default: 42).")
     parser.add_argument("--iterations", type=int, default=25,
                         help="VLNS iteration budget per run (default: 25).")
+    parser.add_argument("--extended", action="store_true", help="Include heuristic System-1 surrogate modes.")
     parser.add_argument("--output", type=Path, default=None,
                         help="Optional JSON output path.")
     args = parser.parse_args()
@@ -36,7 +37,7 @@ def main() -> int:
 
     rows = []
     for seed in args.seeds:
-        rows.extend(result.as_dict() for result in run_matrix(seed=seed, iterations=args.iterations))
+        rows.extend(result.as_dict() for result in ((run_extended_matrix if args.extended else run_matrix)(seed=seed, iterations=args.iterations)))
 
     print("mode           seed  feasible  moves  projected  destroy_jev  repair_jev")
     print("-" * 76)
