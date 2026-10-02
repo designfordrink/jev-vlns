@@ -1,0 +1,25 @@
+name: Benchmark
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test-and-benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install
+        run: pip install -e '.[dev]'
+      - name: Tests
+        run: pytest
+      - name: Benchmark matrix
+        run: python experiments/run_benchmark.py --seeds 1 2 3 4 5 --iterations 50 --output experiments/runs/matrix.json
+      - name: Upload benchmark artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: jev-vlns-benchmark
+          path: experiments/runs/matrix.json
