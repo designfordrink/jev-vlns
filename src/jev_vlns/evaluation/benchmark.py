@@ -112,3 +112,24 @@ def run_matrix(
         run_benchmark(seed=seed, iterations=iterations, mode=mode)
         for mode in ("random-random", "jev-random", "random-jev", "jev-jev")
     ]
+
+
+def run_extended_matrix(
+    *,
+    seed: int = 42,
+    iterations: int = 25,
+) -> list[BenchmarkResult]:
+    """Run the original controls plus deterministic heuristic System-1 modes."""
+    modes = (
+        "random-random",
+        "jev-random",
+        "random-jev",
+        "jev-jev",
+        "heuristic-random",
+        "random-heuristic",
+        "heuristic-heuristic",
+    )
+    return [
+        run_benchmark(seed=seed, iterations=iterations, mode=mode)
+        for mode in modes
+    ]
