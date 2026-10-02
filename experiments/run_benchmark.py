@@ -41,7 +41,7 @@ def main() -> int:
     print("mode           seed  feasible  moves  projected  destroy_jev  repair_jev")
     print("-" * 76)
     for row in rows:
-        print(f"{row["mode"]:<14} {row["seed"]:>4}  {str(row["feasible"]):<8}  {row["moves"]:>5}  {row["projected_objective"]:>9.1f}  {row["destroy_jev_calls"]:>11}  {row["repair_jev_calls"]:>9}")
+        print(f"{row['mode']:<14} {row['seed']:>4}  {str(row['feasible']):<8}  {row['moves']:>5}  {row['projected_objective']:>9.1f}  {row['destroy_jev_calls']:>11}  {row['repair_jev_calls']:>9}")
 
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
