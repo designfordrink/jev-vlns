@@ -43,3 +43,13 @@ def test_random_vlns_returns_a_complete_solution_when_greedy_can_finish():
     assert result.state.is_complete
     assert result.evaluation.feasible
     assert result.best_projected_objective >= 0
+
+
+def test_guided_vlns_random_selectors_is_reproducible():
+    from jev_vlns.search.vlns import guided_vlns, make_random_vlns_selectors
+
+    state = make_seeded_state(42)
+    a = guided_vlns(state, *make_random_vlns_selectors(9), iterations=20)
+    b = guided_vlns(state, *make_random_vlns_selectors(9), iterations=20)
+    assert a.state == b.state
+    assert a.evaluation == b.evaluation
