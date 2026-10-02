@@ -20,3 +20,20 @@ pytest
 ```
 
 See [docs/TRD.md](docs/TRD.md) for the technical requirements and milestone plan.
+
+
+## M8.5 — Oracle / Candidate Landscape
+
+The current Container Stack neighborhood is small enough to enumerate exactly. The research harness therefore includes an **Oracle** control: it evaluates every legal destroy candidate and every complete repair plan using the same greedy-completion objective used by VLNS.
+
+This is not a production optimizer. It answers a diagnostic question:
+
+> Does the current neighborhood contain substantially better candidates that Random or JEV simply fail to select?
+
+The benchmark reports:
+
+- **Destroy regret** — selected destroy neighborhood score minus the best destroy score available in that iteration.
+- **Repair regret** — selected complete repair score minus the best repair score for the selected destroy.
+- candidate counts for both stages.
+
+Oracle modes are `oracle-random`, `random-oracle`, and `oracle-oracle`.
