@@ -6,7 +6,11 @@ def _row(mode: str, seed: int, moves: int, feasible: bool = True) -> dict:
 
 def test_summarize_reports_distribution():
     summary = summarize([_row("random-random", 1, 20), _row("random-random", 2, 10), _row("random-random", 3, 30)])
-    assert summary == [{"mode": "random-random", "n": 3, "feasible_rate": 1.0, "min": 10, "median": 20, "mean": 20, "max": 30, "stdev": 10.0}]
+    assert summary == [{
+        "mode": "random-random", "n": 3, "feasible_rate": 1.0,
+        "min": 10, "median": 20, "mean": 20, "max": 30, "stdev": 10.0,
+        "mean_destroy_regret": 0.0, "mean_repair_regret": 0.0,
+    }]
 
 def test_deltas_are_paired_by_seed():
     rows = [_row("random-random", 1, 20), _row("heuristic-heuristic", 1, 15), _row("random-random", 2, 30), _row("heuristic-heuristic", 2, 35)]
