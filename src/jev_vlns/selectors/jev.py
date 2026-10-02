@@ -111,3 +111,13 @@ class JevRepairSelector:
         if not scoped:
             raise ValueError(f"no repair candidates for container: {container_id}")
         return self.selector.select(partial_state, scoped)
+
+
+class JevDestroySelector:
+    """Choose one destroy neighborhood using JEV."""
+
+    def __init__(self, selector: JevSelector):
+        self.selector = selector
+
+    def select(self, state: Any, candidates: Sequence[T]) -> T:
+        return self.selector.select(state, candidates)
