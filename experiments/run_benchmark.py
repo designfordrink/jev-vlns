@@ -39,10 +39,10 @@ def main() -> int:
     for seed in args.seeds:
         rows.extend(result.as_dict() for result in ((run_extended_matrix if args.extended else run_matrix)(seed=seed, iterations=args.iterations)))
 
-    print("mode           seed  feasible  moves  projected  destroy_jev  repair_jev")
-    print("-" * 76)
+    print("mode           seed  feasible  moves  projected  destroy_jev  repair_jev  D-regret  R-regret")
+    print("-" * 98)
     for row in rows:
-        print(f"{row['mode']:<14} {row['seed']:>4}  {str(row['feasible']):<8}  {row['moves']:>5}  {row['projected_objective']:>9.1f}  {row['destroy_jev_calls']:>11}  {row['repair_jev_calls']:>9}")
+        print(f"{row['mode']:<14} {row['seed']:>4}  {str(row['feasible']):<8}  {row['moves']:>5}  {row['projected_objective']:>9.1f}  {row['destroy_jev_calls']:>11}  {row['repair_jev_calls']:>9}  {row['mean_destroy_regret']:>8.2f}  {row['mean_repair_regret']:>8.2f}")
 
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
