@@ -1,4 +1,5 @@
 from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass
 from typing import Any, TypeVar
 
 from jev_vlns.jev.types import JevClientProtocol
@@ -6,6 +7,15 @@ from jev_vlns.jev.types import JevClientProtocol
 T = TypeVar("T")
 Fallback = Callable[[Any, Sequence[T]], T]
 StateSerializer = Callable[[Any], Mapping[str, Any]]
+
+
+@dataclass
+class JevSelectorStats:
+    decisions: int = 0
+    accepted: int = 0
+    fallbacks: int = 0
+    low_confidence: int = 0
+    invalid_choice: int = 0
 
 
 class JevSelector:
@@ -29,6 +39,7 @@ class JevSelector:
         self.objective = objective
         self.min_confidence = min_confidence
         self.state_serializer = state_serializer or _default_state_serializer
+        self.stats = JevSelectorStats()
 
     def select(self, state: Any, candidates: Sequence[T]) -> T:
         if not candidates:
@@ -51,17 +62,22 @@ class JevSelector:
             objective=self.objective,
         )
 
+        self.stats.decisions += 1
         try:
             result = self.client.decide(state_data, question)
             if result.choice not in candidate_map:
+                self.stats.invalid_choice += 1
                 raise ValueError(f"JEV selected unknown candidate: {result.choice}")
             if result.confidence is not None and result.confidence < self.min_confidence:
+                self.stats.low_confidence += 1
                 raise ValueError(
                     f"JEV confidence {result.confidence:.3f} is below "
                     f"minimum {self.min_confidence:.3f}"
                 )
+            self.stats.accepted += 1
             return next(c for c in candidates if _candidate_id(c) == result.choice)
         except Exception:
+            self.stats.fallbacks += 1
             return self.fallback(state, candidates)
 
 
