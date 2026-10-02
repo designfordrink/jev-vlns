@@ -58,3 +58,28 @@ def test_jev_selector_rejects_duplicate_ids():
         assert "duplicate candidate id" in str(exc)
     else:
         raise AssertionError("expected duplicate candidate IDs to fail")
+
+
+def test_jev_repair_selector_scopes_candidates_by_container():
+    from jev_vlns.selectors.jev import JevRepairSelector
+
+    @dataclass(frozen=True)
+    class RepairCandidate:
+        id: str
+        container_id: str
+        description: str
+
+    selector = JevRepairSelector(
+        JevSelector(
+            FakeJevClient(strategy="last"),
+            fallback,
+            task="repair",
+            question="Choose placement",
+        )
+    )
+    candidates = [
+        RepairCandidate("a0", "c1", "c1 -> 0"),
+        RepairCandidate("a1", "c1", "c1 -> 1"),
+        RepairCandidate("b0", "c2", "c2 -> 0"),
+    ]
+    assert selector.select_for_container({}, candidates, "c1").id == "a1"
