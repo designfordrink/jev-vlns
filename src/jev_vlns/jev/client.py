@@ -21,10 +21,15 @@ class JevClientStats:
     total_latency_ms: float = 0.0
     total_input_tokens: int = 0
     total_output_tokens: int = 0
+    total_cost_usd: float = 0.0
 
     @property
     def average_latency_ms(self) -> float:
         return self.total_latency_ms / self.calls if self.calls else 0.0
+
+    @property
+    def average_cost_usd(self) -> float:
+        return self.total_cost_usd / self.successes if self.successes else 0.0
 
 
 class JevClient:
@@ -117,13 +122,18 @@ class JevClient:
                 raise JevClientError("JEV confidence is not numeric") from exc
 
         usage = data.get("usage") or {}
-        self.stats.total_input_tokens += int(usage.get("input_tokens", 0) or 0)
-        self.stats.total_output_tokens += int(usage.get("output_tokens", 0) or 0)
+        input_tokens = int(usage.get("input_tokens", 0) or 0)
+        output_tokens = int(usage.get("output_tokens", 0) or 0)
+        cost = usage.get("cost")
+        cost_usd = 0.0 if cost is None else float(cost)
+        self.stats.total_input_tokens += input_tokens
+        self.stats.total_output_tokens += output_tokens
+        self.stats.total_cost_usd += cost_usd
 
         return DecisionResult(
             choice=choice,
             confidence=confidence,
             latency_ms=latency_ms,
-            cost_usd=None,
+            cost_usd=cost_usd,
             raw=data,
         )
