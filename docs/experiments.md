@@ -20,6 +20,9 @@ The first baseline selectors are RandomSelector and GreedySelector. The solver m
 | jev-random | JEV | Random | effect of choosing where to rebuild |
 | random-jev | Random | JEV | effect of choosing how to rebuild |
 | jev-jev | JEV | JEV | combined pipeline |
+| heuristic-random | Heuristic System-1 | Random | controlled non-random Destroy selector |
+| random-heuristic | Random | Heuristic System-1 | controlled non-random Repair selector |
+| heuristic-heuristic | Heuristic System-1 | Heuristic System-1 | combined deterministic surrogate |
 
 JEV here means the System-1 selector: it chooses one item from a finite, code-generated candidate set. It does not generate arbitrary actions, validate them, or execute them.
 
@@ -56,3 +59,12 @@ Do not average different seeds into a single claim before inspecting per-seed re
 No claim about JEV improvement should be made until controlled runs compare the same instances, seeds and budgets.
 
 A FakeJevClient result is a software-integration/control result, not a result about the quality of the real JEV model.
+
+
+## Heuristic System-1 surrogate
+
+The extended matrix introduces HeuristicJevClient. It is deliberately **not** presented as real JEV. It is a deterministic surrogate that receives the same typed candidate set and state as a JEV client and makes a cheap local choice.
+
+For Repair it prefers the least-loaded destination stack. For Destroy it prefers a two-stack neighborhood. This gives us an intermediate experiment before connecting the real JEV model.
+
+A positive result here does not prove that JEV itself is better; it tests the narrower hypothesis that selection quality matters inside the candidate-first architecture.
