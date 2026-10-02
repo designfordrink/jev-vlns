@@ -976,3 +976,14 @@ M13 Railroad Blocking Problem
 > Реализуй M1 согласно TRD. Сначала tests, затем simulator. Не добавляй JEV и VLNS.
 
 Это намеренное разделение: сначала проверяем механику задачи, затем search, затем JEV.
+
+
+## 34. M9 — Real JEV Destroy experiment
+
+M9 fixes Repair to Random and compares three Destroy selectors on identical seeded instances:
+
+- Random Destroy + Random Repair
+- Oracle Destroy + Random Repair
+- Real JEV Destroy + Random Repair
+
+The real JEV path must use the provider's typed Choice contract, fail explicitly when no API key is configured, and record calls, fallbacks, confidence, latency and token usage. No solver-quality claim is made until the fixed-seed series is complete.
