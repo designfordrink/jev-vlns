@@ -1,12 +1,8 @@
-"""Analyze raw JEV/VLNS benchmark results.
-
-Usage:
-    python experiments/analyze_benchmark.py experiments/runs/matrix.json
-    python experiments/analyze_benchmark.py experiments/runs/matrix.json --output experiments/runs/analysis.md
-"""
-
+"""Analyze raw JEV/VLNS benchmark results."""
 from __future__ import annotations
-import argparse, json, statistics
+import argparse
+import json
+import statistics
 from pathlib import Path
 from typing import Any
 
@@ -52,19 +48,25 @@ def _fmt(value: float) -> str:
 def render_markdown(payload: dict[str, Any]) -> str:
     summary = summarize(payload["results"])
     deltas = deltas_vs_random_random(payload["results"])
-    lines = ["# Benchmark analysis", "", f"Seeds: {payload.get("seeds", "unknown")}",
-             f"Iterations: {payload.get("iterations", "unknown")}", "", "## Summary by mode", "",
-             "| Mode | N | Feasible | Min | Median | Mean | Max | Stdev |",
-             "|---|---:|---:|---:|---:|---:|---:|---:|"]
+    lines = [
+        "# Benchmark analysis", "",
+        f"Seeds: {payload.get('seeds', 'unknown')}",
+        f"Iterations: {payload.get('iterations', 'unknown')}", "",
+        "## Summary by mode", "",
+        "| Mode | N | Feasible | Min | Median | Mean | Max | Stdev |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|",
+    ]
     for item in summary:
-        lines.append(f"| {item["mode"]} | {item["n"]} | {item["feasible_rate"]:.0%} | {item["min"]} |
-                     f"{_fmt(item["median"])} | {_fmt(item["mean"])} | {item["max"]} | {_fmt(item["stdev"])} |")
+        lines.append(
+            f"| {item['mode']} | {item['n']} | {item['feasible_rate']:.0%} | {item['min']} | "
+            f"{_fmt(item['median'])} | {_fmt(item['mean'])} | {item['max']} | {_fmt(item['stdev'])} |"
+        )
     if deltas:
         lines += ["", "## Per-seed delta vs random-random", "",
                   "delta_moves = mode.moves - random-random.moves; negative means fewer final moves.", "",
                   "| Seed | Mode | Baseline | Moves | Delta |", "|---:|---|---:|---:|---:|"]
         for item in deltas:
-            lines.append(f"| {item["seed"]} | {item["mode"]} | {item["baseline_moves"]} | {item["moves"]} | {item["delta_moves"]:+d} |")
+            lines.append(f"| {item['seed']} | {item['mode']} | {item['baseline_moves']} | {item['moves']} | {item['delta_moves']:+d} |")
     lines += ["", "## Interpretation guardrails", "",
               "- moves is the primary solver-quality outcome.",
               "- projected_objective is a search-time estimate, not the final objective.",
