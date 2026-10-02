@@ -2,7 +2,7 @@ from dataclasses import dataclass, asdict
 from typing import Any
 
 from jev_vlns.container_stack.state import make_seeded_state
-from jev_vlns.jev.fake import FakeJevClient
+from jev_vlns.jev.fake import FakeJevClient, HeuristicJevClient
 from jev_vlns.selectors.jev import JevDestroySelector, JevRepairSelector, JevSelector
 from jev_vlns.search.vlns import guided_vlns, make_random_vlns_selectors
 
@@ -41,21 +41,21 @@ def run_benchmark(
 ) -> BenchmarkResult:
     """Run one controlled JEV/VLNS configuration.
 
-    FakeJevClient makes the experiment offline and reproducible. The
-    first/last strategies are deliberately simple stand-ins for System-1;
+    FakeJevClient and HeuristicJevClient make the experiment offline and reproducible.
+    The heuristic client is a deterministic System-1 surrogate, not real JEV;
     replacing them with the real JEV client does not change the solver.
     """
-    if mode not in {"random-random", "jev-random", "random-jev", "jev-jev"}:
+    if mode not in {"random-random", "jev-random", "random-jev", "jev-jev", "heuristic-random", "random-heuristic", "heuristic-heuristic"}:
         raise ValueError(f"unknown benchmark mode: {mode}")
 
     state = make_seeded_state(seed)
 
     random_destroy, random_repair = make_random_vlns_selectors(seed)
 
-    destroy_client = FakeJevClient(strategy="last")
-    repair_client = FakeJevClient(strategy="last")
+    destroy_client = HeuristicJevClient() if mode.startswith("heuristic-") or mode == "heuristic-heuristic" else FakeJevClient(strategy="last")
+    repair_client = HeuristicJevClient() if mode.endswith("-heuristic") or mode == "heuristic-heuristic" else FakeJevClient(strategy="last")
 
-    if mode in {"jev-random", "jev-jev"}:
+    if mode in {"jev-random", "jev-jev", "heuristic-random", "heuristic-heuristic"}:
         destroy_selector = JevDestroySelector(
             JevSelector(
                 destroy_client,
@@ -68,7 +68,7 @@ def run_benchmark(
     else:
         destroy_selector = random_destroy
 
-    if mode in {"random-jev", "jev-jev"}:
+    if mode in {"random-jev", "jev-jev", "random-heuristic", "heuristic-heuristic"}:
         repair_selector = JevRepairSelector(
             JevSelector(
                 repair_client,
