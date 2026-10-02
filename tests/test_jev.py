@@ -110,6 +110,8 @@ def test_jev_client_parses_current_typesafe_response(monkeypatch):
     assert client.stats.calls == 1
     assert client.stats.successes == 1
     assert client.stats.total_input_tokens == 123
+    assert result.cost_usd == 0.000123
+    assert client.stats.total_cost_usd == 0.000123
     assert captured["body"]["questions"]["choice"]["type"] == "choice"
     assert captured["body"]["questions"]["choice"]["criteria"] == {
         "d1": "first",
