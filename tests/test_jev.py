@@ -87,7 +87,7 @@ def test_jev_client_parses_current_typesafe_response(monkeypatch):
                         "probabilities": {"d1": 0.13, "d2": 0.87},
                     }
                 },
-                "usage": {"input_tokens": 123, "output_tokens": 12},
+                "usage": {"input_tokens": 123, "output_tokens": 12, "cost": 0.000123},
             }).encode()
 
     def fake_urlopen(request, timeout):
