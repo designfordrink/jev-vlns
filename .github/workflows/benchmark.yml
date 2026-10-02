@@ -17,7 +17,7 @@ jobs:
       - name: Tests
         run: pytest
       - name: Benchmark matrix
-        run: python experiments/run_benchmark.py --seeds 1 2 3 4 5 --iterations 50 --output experiments/runs/matrix.json
+        run: python experiments/run_benchmark.py --extended --seeds 1 2 3 4 5 --iterations 50 --output experiments/runs/matrix.json
       - name: Upload benchmark artifact
         uses: actions/upload-artifact@v4
         with:
