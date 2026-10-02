@@ -4,6 +4,7 @@ from typing import Any
 from jev_vlns.container_stack.state import make_seeded_state
 from jev_vlns.jev.fake import FakeJevClient, HeuristicJevClient
 from jev_vlns.selectors.jev import JevDestroySelector, JevRepairSelector, JevSelector
+from jev_vlns.search.oracle import OracleDestroySelector, OracleRepairSelector
 from jev_vlns.search.vlns import guided_vlns, make_random_vlns_selectors
 
 
@@ -17,6 +18,10 @@ class BenchmarkResult:
     projected_objective: float
     destroy_jev_calls: int
     repair_jev_calls: int
+    mean_destroy_candidates: float
+    mean_repair_candidates: float
+    mean_destroy_regret: float
+    mean_repair_regret: float
 
     def as_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -45,7 +50,11 @@ def run_benchmark(
     The heuristic client is a deterministic System-1 surrogate, not real JEV;
     replacing them with the real JEV client does not change the solver.
     """
-    if mode not in {"random-random", "jev-random", "random-jev", "jev-jev", "heuristic-random", "random-heuristic", "heuristic-heuristic"}:
+    if mode not in {
+        "random-random", "jev-random", "random-jev", "jev-jev",
+        "heuristic-random", "random-heuristic", "heuristic-heuristic",
+        "oracle-random", "random-oracle", "oracle-oracle",
+    }:
         raise ValueError(f"unknown benchmark mode: {mode}")
 
     state = make_seeded_state(seed)
@@ -55,7 +64,9 @@ def run_benchmark(
     destroy_client = HeuristicJevClient() if mode.startswith("heuristic-") or mode == "heuristic-heuristic" else FakeJevClient(strategy="last")
     repair_client = HeuristicJevClient() if mode.endswith("-heuristic") or mode == "heuristic-heuristic" else FakeJevClient(strategy="last")
 
-    if mode in {"jev-random", "jev-jev", "heuristic-random", "heuristic-heuristic"}:
+    if mode in {"oracle-random", "oracle-oracle"}:
+        destroy_selector = OracleDestroySelector()
+    elif mode in {"jev-random", "jev-jev", "heuristic-random", "heuristic-heuristic"}:
         destroy_selector = JevDestroySelector(
             JevSelector(
                 destroy_client,
@@ -68,7 +79,9 @@ def run_benchmark(
     else:
         destroy_selector = random_destroy
 
-    if mode in {"random-jev", "jev-jev", "random-heuristic", "heuristic-heuristic"}:
+    if mode in {"oracle-oracle", "random-oracle"}:
+        repair_selector = OracleRepairSelector()
+    elif mode in {"random-jev", "jev-jev", "random-heuristic", "heuristic-heuristic"}:
         repair_selector = JevRepairSelector(
             JevSelector(
                 repair_client,
@@ -99,6 +112,10 @@ def run_benchmark(
         projected_objective=result.best_projected_objective,
         destroy_jev_calls=destroy_client.calls,
         repair_jev_calls=repair_client.calls,
+        mean_destroy_candidates=result.mean_destroy_candidates,
+        mean_repair_candidates=result.mean_repair_candidates,
+        mean_destroy_regret=result.mean_destroy_regret,
+        mean_repair_regret=result.mean_repair_regret,
     )
 
 
@@ -128,6 +145,9 @@ def run_extended_matrix(
         "heuristic-random",
         "random-heuristic",
         "heuristic-heuristic",
+        "oracle-random",
+        "random-oracle",
+        "oracle-oracle",
     )
     return [
         run_benchmark(seed=seed, iterations=iterations, mode=mode)
