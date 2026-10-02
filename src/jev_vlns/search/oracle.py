@@ -8,7 +8,7 @@ and chooses the candidate with the lowest greedy-completion objective.
 from dataclasses import dataclass
 from collections.abc import Sequence
 
-from jev_vlns.container_stack.state import ContainerStackState
+from jev_vlns.container_stack.state import ContainerStackState, MAX_STACK_HEIGHT
 from .destroy import DestroyCandidate, PartialSolution, apply_destroy
 from .repair import RepairCandidate, apply_repair, generate_repair_candidates
 from .vlns import projected_objective
@@ -50,7 +50,7 @@ def _enumerate_plans(
         if candidate.container_id == container_id
         and len(partial.state.stacks[candidate.destination_stack])
         + used_capacity[candidate.destination_stack]
-        < 3
+        < MAX_STACK_HEIGHT
     ]
     for candidate in options:
         yield from _enumerate_plans(
