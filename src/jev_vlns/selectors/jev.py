@@ -95,3 +95,19 @@ def _is_json_like(value: Any) -> bool:
     if isinstance(value, Mapping):
         return all(isinstance(k, str) and _is_json_like(v) for k, v in value.items())
     return False
+
+
+class JevRepairSelector:
+    """Choose one placement for a specific removed container."""
+
+    def __init__(self, selector: JevSelector):
+        self.selector = selector
+
+    def select_for_container(self, partial_state: Any, candidates: Sequence[T], container_id: str) -> T:
+        scoped = [
+            candidate for candidate in candidates
+            if getattr(candidate, "container_id", None) == container_id
+        ]
+        if not scoped:
+            raise ValueError(f"no repair candidates for container: {container_id}")
+        return self.selector.select(partial_state, scoped)
