@@ -83,3 +83,26 @@ def test_jev_repair_selector_scopes_candidates_by_container():
         RepairCandidate("b0", "c2", "c2 -> 0"),
     ]
     assert selector.select_for_container({}, candidates, "c1").id == "a1"
+
+
+def test_jev_destroy_selector_chooses_neighborhood():
+    from jev_vlns.selectors.jev import JevDestroySelector
+
+    @dataclass(frozen=True)
+    class DestroyCandidate:
+        id: str
+        description: str
+
+    selector = JevDestroySelector(
+        JevSelector(
+            FakeJevClient(strategy="last"),
+            fallback,
+            task="destroy",
+            question="Choose neighborhood",
+        )
+    )
+    candidates = [
+        DestroyCandidate("stack:0", "destroy stack 0"),
+        DestroyCandidate("stacks:1,2", "destroy stacks 1 and 2"),
+    ]
+    assert selector.select({}, candidates).id == "stacks:1,2"
