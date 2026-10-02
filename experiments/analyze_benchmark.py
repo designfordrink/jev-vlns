@@ -20,9 +20,22 @@ def summarize(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     for mode, mode_rows in by_mode.items():
         moves = [int(row["moves"]) for row in mode_rows]
         feasible = [bool(row["feasible"]) for row in mode_rows]
-        summary.append({"mode": mode, "n": len(mode_rows), "feasible_rate": sum(feasible) / len(feasible),
-                        "min": min(moves), "median": statistics.median(moves), "mean": statistics.mean(moves),
-                        "max": max(moves), "stdev": statistics.stdev(moves) if len(moves) > 1 else 0.0})
+        summary.append({
+            "mode": mode,
+            "n": len(mode_rows),
+            "feasible_rate": sum(feasible) / len(feasible),
+            "min": min(moves),
+            "median": statistics.median(moves),
+            "mean": statistics.mean(moves),
+            "max": max(moves),
+            "stdev": statistics.stdev(moves) if len(moves) > 1 else 0.0,
+            "mean_destroy_regret": statistics.mean(
+                float(row.get("mean_destroy_regret", 0.0)) for row in mode_rows
+            ),
+            "mean_repair_regret": statistics.mean(
+                float(row.get("mean_repair_regret", 0.0)) for row in mode_rows
+            ),
+        })
     return summary
 
 def deltas_vs_random_random(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -53,13 +66,14 @@ def render_markdown(payload: dict[str, Any]) -> str:
         f"Seeds: {payload.get('seeds', 'unknown')}",
         f"Iterations: {payload.get('iterations', 'unknown')}", "",
         "## Summary by mode", "",
-        "| Mode | N | Feasible | Min | Median | Mean | Max | Stdev |",
-        "|---|---:|---:|---:|---:|---:|---:|---:|",
+        "| Mode | N | Feasible | Min | Median | Mean | Max | Stdev | D-regret | R-regret |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for item in summary:
         lines.append(
             f"| {item['mode']} | {item['n']} | {item['feasible_rate']:.0%} | {item['min']} | "
-            f"{_fmt(item['median'])} | {_fmt(item['mean'])} | {item['max']} | {_fmt(item['stdev'])} |"
+            f"{_fmt(item['median'])} | {_fmt(item['mean'])} | {item['max']} | {_fmt(item['stdev'])} | "
+            f"{_fmt(item['mean_destroy_regret'])} | {_fmt(item['mean_repair_regret'])} |"
         )
     if deltas:
         lines += ["", "## Per-seed delta vs random-random", "",
@@ -72,6 +86,9 @@ def render_markdown(payload: dict[str, Any]) -> str:
               "- projected_objective is a search-time estimate, not the final objective.",
               "- Per-seed deltas should be inspected before any aggregate claim.",
               "- Fake JEV and the heuristic System-1 surrogate are controls; they are not evidence about real JEV quality.",
+              "- D-regret measures the selected destroy neighborhood's gap to the best destroy neighborhood available at that iteration.",
+              "- R-regret measures the selected repair plan's gap to the best complete repair plan for the selected destroy.",
+              "- Oracle modes are an upper-bound control for the current neighborhood, not a deployable solver."
               "- A real JEV comparison must keep instances, seeds, iteration/time budgets, and solver code fixed.", ""]
     return "\n".join(lines)
 
