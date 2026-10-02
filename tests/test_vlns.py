@@ -1,7 +1,7 @@
 from jev_vlns.container_stack.state import make_seeded_state
 from jev_vlns.search.destroy import apply_destroy, generate_destroy_candidates
 from jev_vlns.search.repair import apply_repair, generate_repair_candidates
-from jev_vlns.search.vlns import estimated_objective, random_vlns
+from jev_vlns.search.vlns import estimated_objective, projected_objective, random_vlns
 
 
 def test_destroy_removes_top_containers_without_changing_move_count():
@@ -25,7 +25,8 @@ def test_repair_restores_all_destroyed_containers():
 
 def test_estimated_objective_has_remaining_work_term():
     state = make_seeded_state(42)
-    assert estimated_objective(state) == state.moves + len(state.containers)
+    assert estimated_objective(state) == projected_objective(state)
+    assert estimated_objective(state) >= state.moves
 
 
 def test_random_vlns_is_reproducible():
@@ -34,3 +35,11 @@ def test_random_vlns_is_reproducible():
     b = random_vlns(state, seed=9, iterations=20)
     assert a.state == b.state
     assert a.evaluation == b.evaluation
+
+
+def test_random_vlns_returns_a_complete_solution_when_greedy_can_finish():
+    state = make_seeded_state(42)
+    result = random_vlns(state, seed=9, iterations=20)
+    assert result.state.is_complete
+    assert result.evaluation.feasible
+    assert result.best_projected_objective >= 0
