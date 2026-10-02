@@ -116,3 +116,75 @@ def random_vlns(
         iterations=iterations,
         best_projected_objective=current_score,
     )
+
+
+class _RandomDestroy:
+    def __init__(self, seed: int):
+        self.rng = random.Random(seed)
+
+    def select(self, state, candidates):
+        if not candidates:
+            raise ValueError("no destroy candidates")
+        return self.rng.choice(list(candidates))
+
+
+class _RandomRepair:
+    def __init__(self, seed: int):
+        self.rng = random.Random(seed)
+
+    def select_for_container(self, state, candidates, container_id):
+        scoped = [c for c in candidates if c.container_id == container_id]
+        if not scoped:
+            raise ValueError(f"no repair candidates for {container_id}")
+        return self.rng.choice(scoped)
+
+
+def guided_vlns(
+    initial_state: ContainerStackState,
+    destroy_selector,
+    repair_selector,
+    *,
+    iterations: int = 100,
+) -> VlnsResult:
+    """VLNS with injectable Destroy and Repair selectors.
+
+    This is the experiment harness: selectors may be Random, Greedy or JEV.
+    Candidate generation, legality, objective and execution remain local.
+    """
+    current = initial_state
+    current_score = projected_objective(current)
+
+    for _ in range(iterations):
+        destroys = generate_destroy_candidates(current)
+        if not destroys:
+            break
+
+        destroy = destroy_selector.select(current, destroys)
+        partial = apply_destroy(current, destroy)
+        repairs = generate_repair_candidates(partial)
+
+        choices: list[RepairCandidate] = []
+        for container_id in partial.removed:
+            choice = repair_selector.select_for_container(
+                partial.state, repairs, container_id
+            )
+            choices.append(choice)
+
+        repaired = apply_repair(partial, choices)
+        candidate_score = projected_objective(repaired)
+        if candidate_score < current_score:
+            current = repaired
+            current_score = candidate_score
+
+    final_state = _finish_greedily(current)
+    return VlnsResult(
+        state=final_state,
+        evaluation=evaluate(final_state),
+        iterations=iterations,
+        best_projected_objective=current_score,
+    )
+
+
+def make_random_vlns_selectors(seed: int = 0):
+    """Return reproducible Random Destroy and Random Repair selectors."""
+    return _RandomDestroy(seed), _RandomRepair(seed + 1)
