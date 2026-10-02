@@ -28,6 +28,7 @@ class BenchmarkResult:
     destroy_jev_average_latency_ms: float = 0.0
     destroy_jev_input_tokens: int = 0
     destroy_jev_output_tokens: int = 0
+    destroy_jev_cost_usd: float = 0.0
 
     def as_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -229,4 +230,5 @@ def run_real_jev_destroy_benchmark(
         destroy_jev_average_latency_ms=client.stats.average_latency_ms,
         destroy_jev_input_tokens=client.stats.total_input_tokens,
         destroy_jev_output_tokens=client.stats.total_output_tokens,
+        destroy_jev_cost_usd=client.stats.total_cost_usd,
     )
