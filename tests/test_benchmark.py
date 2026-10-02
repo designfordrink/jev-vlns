@@ -34,3 +34,18 @@ def test_invalid_mode_is_rejected():
         pass
     else:
         raise AssertionError("expected invalid benchmark mode to fail")
+
+
+def test_heuristic_system1_modes_are_reproducible():
+    a = run_benchmark(seed=42, iterations=10, mode="heuristic-heuristic")
+    b = run_benchmark(seed=42, iterations=10, mode="heuristic-heuristic")
+    assert a == b
+    assert a.feasible
+    assert a.destroy_jev_calls > 0
+    assert a.repair_jev_calls > 0
+
+
+def test_heuristic_repair_is_selective():
+    result = run_benchmark(seed=42, iterations=10, mode="random-heuristic")
+    assert result.feasible
+    assert result.repair_jev_calls > 0
