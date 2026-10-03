@@ -29,4 +29,4 @@ def test_m12_report_marks_fallbacks_and_live_jev():
     report = render_report(result)
     assert "Live JEV Destroy selector" in report
     assert "Fallbacks" in report
-    assert "never be described as successful JEV decisions" in report
+    assert "fallback count is reported separately" in report
