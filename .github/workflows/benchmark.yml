@@ -21,6 +21,8 @@ jobs:
         run: python experiments/run_benchmark.py --extended --seeds 1 2 3 4 5 --iterations 50 --output experiments/runs/matrix.json
       - name: Analyze benchmark
         run: python experiments/analyze_benchmark.py experiments/runs/matrix.json --output experiments/runs/analysis.md
+      - name: M11 choice-quality matrix
+        run: python experiments/run_choice_quality.py --seeds 1 2 3 4 5 --iterations 50 --output experiments/runs/m11-choice-quality
       - name: Upload benchmark artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -28,3 +30,5 @@ jobs:
           path: |
             experiments/runs/matrix.json
             experiments/runs/analysis.md
+            experiments/runs/m11-choice-quality.json
+            experiments/runs/m11-choice-quality.md
