@@ -1,989 +1,722 @@
 # TRD — jev-vlns
 
+> **Status:** living document. This document describes the current architecture and research contract of the repository. Historical milestone plans are retained only where they explain the experiment design; they are not treated as the current implementation specification.
+
 ## 1. Назначение
 
-`jev-vlns` — исследовательский стенд для проверки архитектуры **JEV + VLNS** на простой визуальной задаче укладки контейнеров.
+`jev-vlns` — исследовательский прототип для проверки идеи **JEV + VLNS (Variable Large Neighborhood Search)** на задаче Container Stack.
 
-**VLNS (Variable Large Neighborhood Search)** — вариант локального поиска, в котором на каждой итерации часть текущего решения разрушается, а затем восстанавливается.
+VLNS повторяет цикл:
 
-**JEV / System-1** — быстрый decision-модель, которая получает конечный набор вариантов и выбирает один из них. JEV не должен самостоятельно придумывать произвольное действие.
+```
+current solution
+      ↓
+destroy
+      ↓
+partial solution
+      ↓
+repair
+      ↓
+candidate solution
+      ↓
+evaluate
+      ↓
+accept / reject
+      ↓
+next iteration
+```
 
-Цель первого этапа — не получить «умного игрового агента», а экспериментально проверить гипотезу:
+Ключевая гипотеза проекта:
 
-> если пространство допустимых локальных решений заранее генерируется обычным кодом, может ли JEV эффективно выбирать между ними внутри цикла destroy → repair → evaluate?
+> если пространство допустимых локальных решений заранее генерируется обычным детерминированным кодом, может ли JEV эффективно выбирать между конечным набором кандидатов внутри поискового цикла?
 
-Проект должен затем позволить заменить Container Stack на Railroad Blocking Problem без переписывания ядра поиска и selector-интерфейса.
+Это не попытка заменить обычный solver LLM-агентом. JEV используется как **selector / decision layer**, а environment, candidate generation, execution, validation и objective остаются в коде.
 
 ---
 
-## 2. Целевые среды выполнения
+## 2. Текущий статус
 
-Основная среда разработки:
+Текущий исследовательский этап — **M9: Real JEV Destroy**.
 
-- Claude Code в Claude Desktop / Claude Code Desktop;
-- Python 3.11+;
-- Git;
-- macOS / Linux / Windows;
-- JEV API через TypeSafe или OpenRouter.
+M9 специально фиксирует Repair как Random и сравнивает:
 
-Проект должен быть пригоден для запуска обычным Python CLI без Claude Code.
+| Destroy | Repair |
+|---|---|
+| Random | Random |
+| Oracle | Random |
+| **Real JEV** | Random |
 
-Claude Code используется как **System-2 / orchestration layer** разработки, а JEV — как **System-1 / fast decision layer** внутри приложения.
+Это изолирует вопрос:
 
-Это принципиально разные роли:
+> насколько полезен реальный JEV именно как Destroy selector, когда Repair не зависит от JEV?
 
-```
-Claude Code
-   │
-   │ проектирование, код, анализ экспериментов
-   ▼
-jev-vlns
-   │
-   ├── simulator
-   ├── candidate generator
-   ├── JEV selector
-   ├── VLNS
-   └── evaluator
-```
+Текущий M9 использует реальный JEV через HTTP API. Поддерживается конфигурация через OpenRouter; provider telemetry сохраняется в результатах решения.
+
+Для CI и offline benchmark реальный API **не требуется**.
 
 ---
 
-## 3. Архитектурный принцип
+## 3. Основной архитектурный принцип: candidate-first
 
-Базовый pipeline:
-
-```
-State
-  ↓
-Candidate Generator
-  ↓
-Selector
-  ↓
-Executor
-  ↓
-New State
-  ↓
-Evaluator
-```
-
-Для VLNS:
-
-```
-Current Solution
-      ↓
-Destroy Generator
-      ↓
-Destroy Selector
-      ↓
-Partial Solution
-      ↓
-Repair Candidate Generator
-      ↓
-Repair Selector
-      ↓
-Repaired Solution
-      ↓
-Validator + Objective
-      ↓
-Accept / Reject
-      ↓
-Next Iteration
-```
-
-Для JEV:
-
-```
-State + Candidates
-       ↓
-      JEV
-       ↓
-Selected Candidate
-       ↓
-Deterministic Executor
-```
-
-JEV находится только в точке выбора. Правила допустимости и изменение состояния принадлежат обычному детерминированному коду.
-
----
-
-## 4. Что НЕ должен делать JEV
-
-JEV не должен:
-
-- придумывать Python-код;
-- напрямую менять State;
-- самостоятельно проверять все правила игры;
-- генерировать произвольные координаты;
-- принимать решение на основании скрытого состояния;
-- заменять Validator;
-- заменять Objective Function;
-- выполнять файловые операции;
-- быть необходимым для запуска baseline.
-
-Если JEV недоступен, эксперимент должен продолжать работать с Random или Greedy selector.
-
-Это позволит измерять именно вклад JEV.
-
----
-
-## 5. Интеграция JEV
-
-### 5.1. Источник идей
-
-В качестве reference implementation используется:
-
-urldesignfordrink/jev-pluginhttps://github.com/designfordrink/jev-plugin
-
-Из него следует использовать архитектурные идеи, а не копировать plugin целиком:
-
-1. отдельный API client;
-2. credentials через environment / `~/.claude/jev.env`;
-3. поддержка TypeSafe и OpenRouter;
-4. timeout и retry;
-5. единый JSON request;
-6. typed questions;
-7. обработка confidence;
-8. логирование расходов и ответов;
-9. graceful failure — ошибка JEV не должна ломать основной pipeline.
-
-Reference plugin использует запрос к `/v1/systemone` с формой:
-
-```json
-{
-  "model": "jev-latest",
-  "state": {},
-  "questions": {}
-}
-```
-
-В новом проекте этот механизм должен быть изолирован в:
-
-```
-src/jev_vlns/jev/
-├── client.py
-├── types.py
-├── selector.py
-└── config.py
-```
-
-### 5.2. Credentials
-
-Поддержать:
-
-1. `JEV_API_KEY`
-2. `TYPESAFE_API_KEY`
-3. `OPENROUTER_API_KEY`
-4. `TYPESAFE_BASE_URL`
-
-Также поддержать:
-
-```
-~/.claude/jev.env
-```
-
-и локальный:
-
-```
-.env
-```
-
-Секреты никогда не должны попадать в git, state dump, benchmark или replay.
-
-### 5.3. Provider detection
-
-Если используется OpenRouter key `sk-or-...`, по умолчанию использовать OpenRouter.
-
-Иначе использовать TypeSafe.
-
-Но provider должен быть явно переопределяемым через `TYPESAFE_BASE_URL`.
-
-### 5.4. JEV request abstraction
-
-Внутренний интерфейс:
-
-```python
-class JevClient(Protocol):
-    def decide(
-        self,
-        state: dict,
-        question: DecisionQuestion,
-    ) -> DecisionResult:
-        ...
-```
-
-Selector не должен знать URL, API key или HTTP.
-
----
-
-## 6. Typed decision model
-
-В Container Stack JEV должен получать **не список Python objects**, а компактное сериализованное состояние.
-
-Пример:
-
-```json
-{
-  "task": "choose_repair",
-  "objective": "minimize_total_moves",
-  "state": {
-    "stacks": [
-      ["C1", "C7"],
-      ["C2"],
-      [],
-      ["C3", "C4"]
-    ],
-    "containers": {
-      "C1": {"destination": "A", "priority": 2},
-      "C2": {"destination": "B", "priority": 1},
-      "C3": {"destination": "A", "priority": 3},
-      "C4": {"destination": "C", "priority": 1}
-    }
-  },
-  "candidates": {
-    "r1": "move C7 from stack 0 to stack 2",
-    "r2": "move C7 from stack 0 to stack 3",
-    "r3": "deliver C7"
-  }
-}
-```
-
-Вопрос JEV:
-
-> Which candidate is the best legal next repair action for minimizing future total moves?
-
-Criteria должны быть сформулированы так, чтобы JEV выбирал **только ID кандидата**.
-
-Ответ:
-
-```json
-{
-  "choice": "r2",
-  "confidence": 0.81
-}
-```
-
-Если конкретный API возвращает другой формат, адаптер должен нормализовать его в `DecisionResult`.
-
----
-
-## 7. Candidate-first design
-
-Это ключевой принцип проекта.
-
-Не:
-
-```
-JEV → invent action
-```
-
-а:
+Правильная граница ответственности:
 
 ```
 Environment
     ↓
 generate legal candidates
     ↓
-JEV chooses candidate
+JEV / baseline selector
     ↓
-Environment executes candidate
+selected candidate
+    ↓
+deterministic executor
+    ↓
+new state
 ```
 
-Таким образом:
+JEV не должен:
 
-- legality определяется кодом;
-- search space определяется кодом;
-- JEV выполняет ranking / choice;
-- executor остаётся детерминированным.
+- напрямую менять состояние;
+- придумывать произвольные действия;
+- самостоятельно обеспечивать legality;
+- заменять validator;
+- заменять objective;
+- быть обязательным условием запуска baseline;
+- скрывать ошибку отсутствующей конфигурации за другим экспериментальным режимом.
 
-Это делает эксперимент воспроизводимым.
+Таким образом можно отдельно измерять качество **выбора**, не смешивая его с качеством генерации или исполнения действий.
 
 ---
 
-## 8. Core interfaces
+## 4. VLNS pipeline
 
-### State
+Для текущего эксперимента логика имеет вид:
 
-```python
-@dataclass(frozen=True)
-class State:
-    ...
+```
+Initial solution
+      ↓
+Destroy candidate generator
+      ↓
+Destroy selector
+      ├── Random
+      ├── Oracle
+      └── Real JEV
+      ↓
+Partial solution
+      ↓
+Random Repair
+      ↓
+Candidate solution
+      ↓
+Objective / feasibility
+      ↓
+Acceptance
+      ↓
+Next iteration
 ```
 
-State должен быть immutable с точки зрения selector.
+На M9 меняется только Destroy selector.
 
-### Action
-
-```python
-@dataclass(frozen=True)
-class Action:
-    id: str
-    kind: str
-    payload: dict
-```
-
-### Candidate Generator
-
-```python
-class CandidateGenerator(Protocol):
-    def generate(self, state: State) -> list[Action]:
-        ...
-```
-
-### Selector
-
-```python
-class Selector(Protocol):
-    def select(
-        self,
-        state: State,
-        candidates: Sequence[Action],
-    ) -> Action:
-        ...
-```
-
-Реализации:
-
-- `RandomSelector`
-- `GreedySelector`
-- `JevSelector`
-
-### Executor
-
-```python
-class Executor(Protocol):
-    def apply(self, state: State, action: Action) -> State:
-        ...
-```
-
-### Evaluator
-
-```python
-@dataclass(frozen=True)
-class Evaluation:
-    feasible: bool
-    objective: float
-    metrics: dict
-```
+Это принципиальное условие контролируемого эксперимента.
 
 ---
 
-## 9. Container Stack model
+## 5. Что находится внутри JEV boundary
 
-### Board
+JEV получает сериализованное состояние задачи и конечный список допустимых кандидатов.
 
-MVP: 5×5.
+Концептуально:
 
-Каждая клетка содержит стек.
-
-Максимальная высота:
-
+```State + legal candidates
+          ↓
+        JEV
+          ↓
+       choice ID
 ```
-MAX_STACK_HEIGHT = 3
-```
 
-### Container
+JEV возвращает выбор кандидата и confidence.
 
-Минимальные поля:
+Нормализованный результат внутри проекта содержит, в частности:
 
-- `id`
-- `destination`
-- `priority`
+- selected choice;
+- confidence;
+- input tokens;
+- output tokens;
+- provider-reported cost;
+- latency;
+- error/fallback information.
 
-Позднее:
-
-- `commodity`
-- `weight`
-- `due_time`
-
-### Legal actions
-
-MVP:
-
-1. move top container from stack A to stack B;
-2. deliver top container if destination condition satisfied.
-
-Все legal actions генерируются environment.
+API-specific формат не должен распространяться по solver-коду. HTTP и normalization изолированы в `src/jev_vlns/jev/`.
 
 ---
 
-## 10. Objective
+## 6. JEV client
 
-MVP objective:
+Основная реализация находится в:
 
 ```
-minimize(total_moves)
+src/jev_vlns/jev/
+├── client.py
+├── config.py
+├── types.py
+└── ...
 ```
 
-Дополнительные metrics:
+Client вызывает:
 
-- delivered_count;
-- blocked_containers;
-- empty_moves;
-- max_stack_height;
-- average stack height;
-- number of iterations;
-- wall-clock time;
-- JEV calls;
-- JEV failures.
+```
+POST {base_url}/v1/systemone
+```
 
-Objective и feasibility должны быть независимы от selector.
+и нормализует текущий TypeSafe Choice response, включая:
+
+```
+answers.choice.choice
+answers.choice.confidence
+```
+
+Поддерживаются credentials:
+
+1. `JEV_API_KEY`
+2. `TYPESAFE_API_KEY`
+3. `OPENROUTER_API_KEY`
+
+Также поддерживаются environment/config overrides, включая:
+
+- `TYPESAFE_BASE_URL`;
+- `JEV_MODEL`;
+- `JEV_TIMEOUT_SECONDS`;
+- `JEV_MIN_CONFIDENCE`;
+- локальный `~/.claude/jev.env`.
+
+Для M9 пример OpenRouter:
+
+```dotenv
+OPENROUTER_API_KEY=
+TYPESAFE_BASE_URL=https://openrouter.ai/api
+JEV_MODEL=typesafe/jev-1.13
+JEV_TIMEOUT_SECONDS=30
+JEV_MIN_CONFIDENCE=0.0
+```
+
+Секреты не должны попадать в repository, benchmark artifacts или state dumps.
 
 ---
 
-## 11. Initial solution
+## 7. Ошибки и отсутствие JEV
 
-VLNS не должен начинать с утверждения, что решение оптимально.
-
-Допустимые источники initial solution:
-
-1. Random;
-2. Greedy;
-3. deterministic seed layout;
-4. позже — saved best solution.
-
-Для каждого benchmark run фиксировать:
-
-- instance seed;
-- initial solution;
-- selector;
-- search seed.
-
----
-
-## 12. Destroy
-
-Destroy переводит полное решение в частичное.
-
-MVP destroy operators:
-
-- `random_k`
-- `stack_k`
-- `blocked_group`
-- `worst_local_region`
-
-На первом этапе JEV получает небольшой набор уже допустимых destroy candidates.
+Реальный M9 не должен молча превращаться в baseline, если API key отсутствует.
 
 Например:
 
 ```
-d1 = destroy stacks [0,1]
-d2 = destroy stacks [2,3]
-d3 = destroy top 3 blocked containers
-d4 = destroy containers with highest estimated delay
+missing API key
+    ↓
+explicit configuration error
 ```
 
-JEV выбирает **WHERE**.
+Это необходимо для корректной интерпретации эксперимента: иначе можно ошибочно принять offline baseline за результат Real JEV.
+
+При runtime errors проект может учитывать fallback согласно конкретному selector/experiment contract; каждое такое событие должно быть измеряемым и не должно скрываться в итоговой статистике.
 
 ---
 
-## 13. Repair
+## 8. Confidence
 
-Repair получает partial solution и создаёт небольшой набор legal repairs.
+Confidence является отдельным сигналом JEV.
 
-Например:
+Конфигурация:
 
 ```
-r1 = place C7 on stack 2
-r2 = place C7 on stack 4
-r3 = deliver C7
+JEV_MIN_CONFIDENCE
 ```
 
-JEV выбирает **HOW**.
+определяет порог, ниже которого решение может быть передано fallback-механизму там, где это разрешено текущим экспериментальным контрактом.
+
+Важно:
+
+> confidence не является доказательством правильности выбора.
+
+Для benchmark series threshold должен быть заранее зафиксирован и одинаков для сравниваемых runs.
 
 ---
 
-## 14. VLNS acceptance
+## 9. Provider cost telemetry
 
-MVP использовать простой acceptance:
+Стоимость запроса не должна оцениваться только по локальному времени.
 
-```
-accept if objective(new) < objective(current)
-```
-
-Позже добавить:
-
-- simulated annealing;
-- threshold acceptance;
-- adaptive acceptance.
-
-Не добавлять это до получения базовых результатов.
-
----
-
-## 15. Experiment matrix
-
-Минимальный обязательный эксперимент:
-
-| Destroy | Repair |
-|---|---|
-| Random | Random |
-| JEV | Random |
-| Random | JEV |
-| JEV | JEV |
-
-Каждая конфигурация должна использовать одинаковые:
-
-- instances;
-- seeds;
-- iteration budget;
-- time budget.
-
-Главный вопрос:
-
-> JEV приносит пользу как Destroy selector, как Repair selector или только в комбинации?
-
----
-
-## 16. JEV modes
-
-Нужно поддержать три режима.
-
-### 16.1. Disabled
-
-JEV вообще не вызывается.
-
-Используется для baseline.
-
-### 16.2. Shadow
-
-JEV вызывается и делает выбор, но выбранное действие не используется.
-
-Основной selector продолжает работу.
-
-Это позволяет:
-
-- измерять latency;
-- считать стоимость;
-- анализировать disagreement;
-- собирать dataset.
-
-### 16.3. Active
-
-JEV реально определяет выбранный candidate.
-
-Это основной экспериментальный режим.
-
----
-
-## 17. Fallback
-
-При:
-
-- timeout;
-- HTTP error;
-- invalid JSON;
-- unknown candidate;
-- low confidence;
-
-selector должен использовать fallback.
-
-MVP:
-
-```
-JEV → fallback Greedy
-```
-
-Для эксперимента также иметь:
-
-```
-JEV → fallback Random
-```
-
-Все fallback события логировать.
-
----
-
-## 18. Confidence policy
-
-JEV не должен считаться oracle.
-
-Минимальная политика:
-
-```
-confidence >= threshold
-    → accept JEV choice
-
-confidence < threshold
-    → fallback
-```
-
-Threshold должен быть конфигурируемым.
-
-Например:
-
-```
-jev:
-  min_confidence: 0.70
-```
-
-В benchmark confidence не должен менять baseline задним числом: все правила должны быть зафиксированы до запуска серии.
-
----
-
-## 19. Logging
-
-Каждый JEV decision должен иметь запись:
+Если provider возвращает:
 
 ```json
 {
-  "run_id": "...",
-  "iteration": 17,
-  "mode": "active",
-  "decision_type": "repair",
-  "candidate_ids": ["r1", "r2", "r3"],
-  "selected": "r2",
-  "confidence": 0.81,
-  "latency_ms": 214,
-  "cost_usd": 0.000001,
-  "fallback": false
+  "usage": {
+    "input_tokens": 123,
+    "output_tokens": 12,
+    "cost": 0.000123
+  }
 }
 ```
 
-Не сохранять API key.
-
-Logs:
+то:
 
 ```
-experiments/runs/<run_id>/
-├── config.json
-├── decisions.jsonl
-├── states.jsonl
-├── metrics.json
-└── replay.json
+DecisionResult.cost_usd
+```
+
+получает это значение, а клиент накапливает:
+
+```
+JevClientStats.total_cost_usd
+```
+
+Также сохраняются input/output token counts.
+
+Это позволяет оценивать JEV не только по solver quality, но и по экономике:
+
+```
+quality / latency / tokens / USD
 ```
 
 ---
 
-## 20. Replay
+## 10. Container Stack
 
-Любой experiment run должен быть воспроизводим по:
+Container Stack — текущая экспериментальная среда, а не конечная цель проекта.
 
-```
-instance_seed
-search_seed
-config
-initial_state
-```
+Задача используется потому, что она позволяет контролируемо отделить:
 
-JEV active replay не гарантирует побитовую идентичность из-за внешнего API.
+- state;
+- legal candidate generation;
+- selection;
+- deterministic execution;
+- objective;
+- search.
 
-Поэтому поддержать:
-
-### Deterministic replay
-
-Сохранять JEV decision ID и selected candidate.
-
-### Live replay
-
-Повторно обращаться к JEV.
-
-В отчёте явно различать эти режимы.
+В дальнейшем тот же selector/search boundary должен быть пригоден для других задач, включая Railroad Blocking Problem.
 
 ---
 
-## 21. Claude Code Desktop integration
+## 11. Baselines и controls
 
-Claude Code должен использоваться как development orchestrator.
+Проект использует несколько типов selectors/controls.
 
-В корне проекта создать `CLAUDE.md`.
+### Random
 
-Он должен заставлять Claude Code:
+Случайный выбор допустимого кандидата.
 
-1. сначала читать `docs/TRD.md`;
-2. не менять core interfaces без явного основания;
-3. объяснять архитектурные изменения;
-4. запускать tests после изменений;
-5. не добавлять LLM/JEV туда, где достаточно deterministic code;
-6. сохранять экспериментальные параметры;
-7. не смешивать benchmark code и production-like core;
-8. использовать JEV через `JevSelector`, а не напрямую из game logic.
+Это основной простейший baseline.
 
-Claude Code не должен сам быть частью runtime benchmark.
+### Oracle
 
-То есть:
+Контроль верхней границы для локального выбора: selector использует доступную информацию о кандидатах и выбирает лучший вариант согласно локальному reference objective.
 
-```
-Claude Code ≠ solver
-```
+Oracle не является реальным алгоритмом, который предполагается использовать в production. Его роль — дать ориентир для regret.
 
-Claude Code помогает разрабатывать solver.
+### FakeJEV / surrogate controls
+
+Используются для разработки и offline проверки JEV pipeline без внешнего API.
+
+### Real JEV
+
+Используется только в live experiment.
 
 ---
 
-## 22. Recommended Claude Code workflow
+## 12. Regret
 
-Для каждого milestone:
+Для M9 важен не только итоговый objective, но и качество отдельных Destroy choices.
+
+Вводится **Destroy regret** относительно Oracle.
+
+Концептуально:
 
 ```
-1. Claude reads TRD
-2. Claude inspects current repository
-3. Claude proposes minimal implementation
-4. Claude writes tests
-5. Claude implements
-6. Claude runs tests
-7. Claude runs small experiment
-8. Claude records result
-9. Git commit
+D-regret =
+quality(oracle destroy)
+vs.
+quality(selected destroy)
 ```
 
-Не переходить к следующему milestone, если предыдущий не имеет работающего теста или демонстрации.
+Конкретная реализация метрики должна оставаться единой для сравниваемых runs.
+
+Цель M9:
+
+> проверить, находится ли поведение Real JEV ближе к Oracle, чем Random, а не просто получить один хороший final score.
 
 ---
 
-## 23. Repository structure
+## 13. Контролируемый benchmark
 
-Целевая структура:
+Для честного сравнения должны быть одинаковыми:
+
+- instance;
+- initial state;
+- seed;
+- iteration budget;
+- candidate generator;
+- Repair;
+- objective;
+- feasibility rules;
+- acceptance rule.
+
+Меняется только исследуемый selector.
+
+Для M9:
+
+```
+Destroy ∈ {Random, Oracle, Real JEV}
+Repair = Random
+```
+
+Нельзя делать вывод о superiority JEV по одному запуску.
+
+Минимально полезный результат — fixed-seed series.
+
+Пример live series:
+
+```bash
+python experiments/run_real_jev_destroy.py \
+  --seeds 1 2 3 4 5 \
+  --iterations 50
+```
+
+---
+
+## 14. Metrics
+
+Основные solver metrics:
+
+- final moves;
+- feasibility;
+- improvement from initial solution;
+- accepted moves;
+- iterations.
+
+JEV-specific:
+
+- JEV calls;
+- successful decisions;
+- fallback count;
+- confidence;
+- average latency;
+- input tokens;
+- output tokens;
+- provider-reported cost USD.
+
+Research-specific:
+
+- Destroy regret;
+- Repair regret, когда Repair-JEV снова станет частью контролируемого эксперимента;
+- candidate counts;
+- per-seed deltas.
+
+Главное правило:
+
+> итоговый score, стоимость и latency рассматриваются совместно.
+
+---
+
+## 15. Offline benchmark
+
+Offline benchmark не должен зависеть от API.
+
+Текущий benchmark runner:
+
+```
+experiments/run_benchmark.py
+```
+
+поддерживает стандартный и extended режимы.
+
+Extended matrix включает комбинации:
+
+- random-random;
+- jev-random;
+- random-jev;
+- jev-jev;
+- heuristic-random;
+- random-heuristic;
+- heuristic-heuristic;
+- oracle-random;
+- random-oracle;
+- oracle-oracle.
+
+Это offline research matrix. Она не заменяет M9 live experiment.
+
+Анализ:
+
+```
+experiments/analyze_benchmark.py
+```
+
+строит summary по режимам и per-seed comparison.
+
+---
+
+## 16. CI
+
+GitHub Actions должны проверять проект без необходимости JEV API key.
+
+Текущий CI:
+
+1. устанавливает Python 3.11;
+2. устанавливает package + dev dependencies;
+3. запускает `pytest`;
+4. запускает extended offline benchmark на фиксированных seeds;
+5. запускает analysis;
+6. сохраняет benchmark artifacts.
+
+Реальный JEV API не является частью обязательного CI.
+
+Это необходимо по двум причинам:
+
+- CI должен быть воспроизводимым;
+- внешний API нельзя делать обязательной зависимостью обычного test pipeline.
+
+---
+
+## 17. Reproducibility
+
+Offline runs должны быть воспроизводимыми по:
+
+- seed;
+- instance;
+- initial state;
+- iteration budget;
+- selector configuration;
+- objective;
+- acceptance configuration.
+
+Live JEV runs дополнительно зависят от внешней модели/provider и поэтому не гарантируют побитовую идентичность.
+
+Для live experiments обязательно сохранять telemetry, достаточную для последующего анализа:
+
+- model;
+- selected candidate;
+- confidence;
+- latency;
+- tokens;
+- cost;
+- fallback/error status.
+
+API secrets сохраняться не должны.
+
+---
+
+## 18. Test strategy
+
+Минимально тестируются:
+
+- JEV response normalization;
+- Choice parsing;
+- confidence parsing;
+- token telemetry;
+- cost telemetry;
+- missing API key behavior;
+- benchmark interfaces;
+- deterministic/offline selectors;
+- objective and experiment accounting.
+
+Особенно важен regression test для текущего TypeSafe response contract.
+
+Live API не должен быть необходим для обычного unit test suite.
+
+---
+
+## 19. Current experiment entry points
+
+Основные команды:
+
+### Offline benchmark
+
+```bash
+python experiments/run_benchmark.py
+```
+
+### Extended offline matrix
+
+```bash
+python experiments/run_benchmark.py \
+  --extended \
+  --seeds 1 2 3 4 5 \
+  --iterations 50 \
+  --output experiments/runs/matrix.json
+```
+
+### Analyze benchmark
+
+```bash
+python experiments/analyze_benchmark.py \
+  experiments/runs/matrix.json \
+  --output experiments/runs/analysis.md
+```
+
+### Real JEV Destroy
+
+```bash
+python experiments/run_real_jev_destroy.py \
+  --seeds 1 2 3 4 5 \
+  --iterations 50
+```
+
+---
+
+## 20. Repository structure — current implementation
+
+Документ не должен навязывать будущую структуру как уже существующую.
+
+Текущие важные части:
 
 ```
 jev-vlns/
-├── CLAUDE.md
 ├── README.md
-├── LICENSE
+├── README.ru.md
 ├── pyproject.toml
+├── .env.example
+├── CLAUDE.md
 │
 ├── docs/
 │   ├── TRD.md
-│   ├── experiments.md
-│   └── architecture.md
+│   ├── M9.md
+│   ├── EXPERIMENTS.md
+│   ├── DEVELOPMENT.md
+│   └── CI.md
 │
 ├── src/
 │   └── jev_vlns/
-│       ├── core/
-│       │   ├── state.py
-│       │   ├── action.py
-│       │   ├── candidate.py
-│       │   ├── selector.py
-│       │   └── evaluator.py
-│       │
-│       ├── container_stack/
-│       │   ├── state.py
-│       │   ├── actions.py
-│       │   ├── destroy.py
-│       │   ├── repair.py
-│       │   └── renderer.py
-│       │
-│       ├── search/
-│       │   └── vlns.py
-│       │
-│       ├── selectors/
-│       │   ├── random.py
-│       │   ├── greedy.py
-│       │   └── jev.py
-│       │
 │       ├── jev/
 │       │   ├── client.py
-│       │   ├── types.py
-│       │   ├── selector.py
-│       │   └── config.py
-│       │
-│       ├── evaluation/
-│       │   └── benchmark.py
-│       │
-│       └── visualization/
-│           └── replay.py
+│       │   ├── config.py
+│       │   └── types.py
+│       └── evaluation/
+│           └── benchmark.py
 │
 ├── tests/
 │
 └── experiments/
+    ├── run_benchmark.py
+    ├── run_real_jev_destroy.py
+    ├── analyze_benchmark.py
     └── runs/
 ```
 
----
-
-## 24. Dependency policy
-
-MVP должен использовать минимум зависимостей.
-
-Предпочтительно:
-
-- Python standard library;
-- pytest;
-- matplotlib — только когда начнётся visualization;
-- requests/httpx — только если это оправдано для JEV client.
-
-Не использовать LangChain/LangGraph и другие agent frameworks без отдельного архитектурного решения.
-
-Причина: нам нужно исследовать именно JEV + search, а не framework overhead.
+Структура может расширяться, но документация должна различать **current implementation** и **target architecture**.
 
 ---
 
-## 25. Testing strategy
+## 21. Что не следует делать
 
-### Unit tests
+До появления экспериментального основания не следует:
 
-Проверять:
-
-- legal actions;
-- stack constraints;
-- delivery rules;
-- destroy;
-- repair;
-- validator;
-- objective;
-- selector contract;
-- JEV response normalization.
-
-### Property tests
-
-Позже:
-
-- apply(action) сохраняет допустимость;
-- destroy + repair может восстановить feasible solution;
-- delivered containers не появляются снова.
-
-### Integration tests
-
-JEV API не должен быть обязательным для CI.
-
-Использовать FakeJevClient.
+- превращать JEV в свободный action generator;
+- переносить legality/validation в LLM;
+- добавлять agent framework без необходимости;
+- делать Claude Code частью runtime solver;
+- смешивать benchmark accounting с core simulator;
+- скрывать API failures;
+- сравнивать разные методы на разных seeds/instances;
+- делать вывод о solver improvement по одному run;
+- использовать стоимость как единственный критерий качества;
+- усложнять acceptance policy до получения чистого baseline.
 
 ---
 
-## 26. Fake JEV
+## 22. Claude Code и System-2 / System-1
 
-Обязательный компонент для разработки.
+Claude Code используется как development/orchestration layer.
 
-```python
-class FakeJevClient:
-    def decide(...):
-        return DecisionResult(...)
-```
-
-Режимы:
-
-- always_first;
-- always_last;
-- scripted;
-- probabilistic;
-- replay.
-
-Это позволит тестировать весь JEV pipeline без API key.
-
----
-
-## 27. Metrics
-
-Основные:
-
-- best objective;
-- final objective;
-- improvement from initial;
-- feasibility rate;
-- iterations;
-- accepted moves;
-- JEV decisions;
-- fallback rate;
-- average JEV latency;
-- p50/p95 latency;
-- estimated API cost.
-
-Не использовать только «победил/проиграл». Нужна серия одинаковых runs.
-
----
-
-## 28. Definition of Done для M0
-
-M0 завершён, когда:
-
-- есть `pyproject.toml`;
-- package импортируется;
-- pytest запускается;
-- `CLAUDE.md` существует;
-- `docs/TRD.md` существует;
-- есть базовые core interfaces;
-- FakeJevClient определён;
-- секреты исключены из git.
-
-## 29. Definition of Done для M1
-
-M1 завершён, когда:
-
-- Container Stack state работает;
-- legal actions генерируются;
-- actions применяются детерминированно;
-- validator определяет feasibility;
-- есть seed;
-- можно вывести состояние в текстовом виде;
-- минимум 10 unit tests проходят.
-
-## 30. Definition of Done для M4
-
-LNS baseline завершён, когда:
-
-- есть initial feasible solution;
-- destroy создаёт partial solution;
-- repair создаёт feasible solution;
-- objective вычисляется до/после;
-- acceptance работает;
-- benchmark можно повторить по seed.
-
-## 31. Definition of Done для M8
-
-JEV-VLNS завершён, когда:
-
-- работают четыре комбинации Random/JEV Destroy/Repair;
-- JEV можно отключить;
-- JEV можно заменить FakeJevClient;
-- fallback работает;
-- решения и JEV decisions логируются;
-- существует воспроизводимый benchmark;
-- можно визуально сравнить траектории.
-
----
-
-## 32. Roadmap
+JEV используется как runtime decision layer.
 
 ```
-M0  Project foundation
- ↓
+Claude Code
+    ↓
+разработка / анализ / изменение проекта
+
+jev-vlns runtime
+    ↓
+search / simulator / evaluator
+    ↓
+JEV System-1
+```
+
+Claude Code не является частью benchmark solver.
+
+Это важно для чистоты эксперимента: исследуется вклад JEV внутри алгоритма, а не качество внешнего coding agent.
+
+---
+
+## 23. Research roadmap
+
+Историческая последовательность проекта:
+
+```
+M0  Foundation
 M1  Container simulator
- ↓
 M2  Validator + objective
- ↓
-M3  Random + Greedy
- ↓
+M3  Random / Greedy
 M4  LNS
- ↓
 M5  Selector interface
- ↓
 M6  JEV Repair
- ↓
 M7  JEV Destroy
- ↓
 M8  JEV + VLNS
- ↓
-M9  Benchmark
- ↓
-M10 Visualization
- ↓
+M9  Real JEV Destroy        ← current
+M10 Visualization / Replay
 M11 JEV Choice vs Score
- ↓
 M12 Learned local policy
- ↓
 M13 Railroad Blocking Problem
 ```
 
+### Current research priority
+
+После M9 следующий шаг должен быть не «добавить больше сложности», а сделать результат наблюдаемым и проверяемым:
+
+1. завершить fixed-seed M9 series;
+2. сохранить raw results;
+3. проверить D-regret;
+4. визуализировать/реплеить решения;
+5. только после этого переходить к следующему типу JEV decision.
+
 ---
 
-## 33. Первое практическое действие
+## 24. Definition of Done — M9
 
-После добавления этого TRD следующий Claude Code task:
+M9 считается исследовательски завершённым, когда:
 
-> Прочитай `docs/TRD.md` и реализуй только M0. Не переходи к Container Stack. Создай минимальный Python package, core interfaces, FakeJevClient, pytest configuration и CLAUDE.md. Запусти tests. Не добавляй реальные вызовы JEV API до M6.
+- Real JEV действительно вызывается через configured provider;
+- отсутствие API key приводит к явной ошибке;
+- Repair остаётся Random;
+- Random / Oracle / Real JEV используют одинаковый experimental setup;
+- fixed-seed series выполнена;
+- JEV calls учитываются;
+- fallback учитывается;
+- confidence учитывается;
+- latency учитывается;
+- input/output tokens учитываются;
+- provider-reported cost учитывается;
+- Destroy regret рассчитан;
+- raw results сохранены;
+- conclusions не основаны на одном run.
 
-После успешного M0:
+---
 
-> Реализуй M1 согласно TRD. Сначала tests, затем simulator. Не добавляй JEV и VLNS.
+## 25. Следующий исследовательский вопрос
 
-Это намеренное разделение: сначала проверяем механику задачи, затем search, затем JEV.
+После M9 основной вопрос:
 
+> **Может ли JEV выбирать хорошие локальные Destroy-операторы существенно лучше Random и насколько близко его поведение к Oracle при приемлемых latency и cost?**
 
-## 34. M9 — Real JEV Destroy experiment
+Если ответ положительный, следующий шаг — сделать поведение наблюдаемым через replay/visualization и затем проверить, сохраняется ли эффект в других формах выбора.
 
-M9 fixes Repair to Random and compares three Destroy selectors on identical seeded instances:
+Если ответ отрицательный, это также полезный результат: необходимо определить, проблема находится в JEV selection quality, представлении состояния, candidate design, confidence policy или самой постановке Destroy choice.
 
-- Random Destroy + Random Repair
-- Oracle Destroy + Random Repair
-- Real JEV Destroy + Random Repair
+---
 
-The real JEV path must use the provider's typed Choice contract, fail explicitly when no API key is configured, and record calls, fallbacks, confidence, latency and token usage. No solver-quality claim is made until the fixed-seed series is complete.
+## 26. Связанные документы
+
+- `README.md` — основное описание проекта.
+- `README.ru.md` — русская версия.
+- `docs/M9.md` — подробный контракт текущего Real JEV Destroy experiment.
+- `docs/EXPERIMENTS.md` — экспериментальные процедуры.
+- `docs/DEVELOPMENT.md` — development workflow.
+- `docs/CI.md` — CI workflow.
+
