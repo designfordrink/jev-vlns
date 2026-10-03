@@ -41,6 +41,7 @@ def main() -> int:
             f"JEV_calls={row['destroy_jev_calls']} "
             f"fallbacks={row['destroy_jev_fallbacks']} "
             f"avg_latency_ms={row['destroy_jev_average_latency_ms']:.1f} "
+            f"cost_usd={row['destroy_jev_cost_usd']:.6f} "
             f"D-regret={row['mean_destroy_regret']:.2f}"
         )
 

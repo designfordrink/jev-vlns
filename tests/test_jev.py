@@ -87,7 +87,7 @@ def test_jev_client_parses_current_typesafe_response(monkeypatch):
                         "probabilities": {"d1": 0.13, "d2": 0.87},
                     }
                 },
-                "usage": {"input_tokens": 123, "output_tokens": 12},
+                "usage": {"input_tokens": 123, "output_tokens": 12, "cost": 0.000123},
             }).encode()
 
     def fake_urlopen(request, timeout):
@@ -110,6 +110,8 @@ def test_jev_client_parses_current_typesafe_response(monkeypatch):
     assert client.stats.calls == 1
     assert client.stats.successes == 1
     assert client.stats.total_input_tokens == 123
+    assert result.cost_usd == 0.000123
+    assert client.stats.total_cost_usd == 0.000123
     assert captured["body"]["questions"]["choice"]["type"] == "choice"
     assert captured["body"]["questions"]["choice"]["criteria"] == {
         "d1": "first",
