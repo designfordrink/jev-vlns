@@ -1,5 +1,7 @@
 # jev-vlns
 
+**Русская версия:** [README.ru.md](README.ru.md)
+
 Research prototype for testing **JEV + VLNS** (Variable Large Neighborhood Search).
 
 The project starts with a small Container Stack environment and is designed so the search core can later be reused for the Railroad Blocking Problem.
