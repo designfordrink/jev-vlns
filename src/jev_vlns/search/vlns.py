@@ -20,6 +20,7 @@ class VlnsResult:
     mean_repair_candidates: float = 0.0
     mean_destroy_regret: float = 0.0
     mean_repair_regret: float = 0.0
+    trace: tuple[dict, ...] = ()
 
 
 def projected_objective(state: ContainerStackState) -> float:
@@ -45,37 +46,22 @@ def estimated_objective(state: ContainerStackState) -> float:
     return projected_objective(state)
 
 
-def _available_repairs(
-    partial,
-    repairs: Sequence[RepairCandidate],
-    container_id: str,
-    planned: Sequence[RepairCandidate],
-) -> list[RepairCandidate]:
-    """Return candidates still legal after earlier repair choices."""
-    reserved = {choice.destination_stack for choice in planned}
+def _available_repairs(partial, repairs: Sequence[RepairCandidate], container_id: str,
+                       planned: Sequence[RepairCandidate]) -> list[RepairCandidate]:
     counts = {
-        index: reserved_count
-        for index, reserved_count in (
-            (stack_index, sum(c.destination_stack == stack_index for c in planned))
-            for stack_index in range(len(partial.state.stacks))
-        )
+        index: sum(c.destination_stack == index for c in planned)
+        for index in range(len(partial.state.stacks))
     }
     return [
-        candidate
-        for candidate in repairs
+        candidate for candidate in repairs
         if candidate.container_id == container_id
-        and len(partial.state.stacks[candidate.destination_stack])
-        + counts[candidate.destination_stack]
+        and len(partial.state.stacks[candidate.destination_stack]) + counts[candidate.destination_stack]
         < MAX_STACK_HEIGHT
     ]
 
 
-def _repair_randomly(
-    partial,
-    removed: Sequence[str],
-    repairs: Sequence[RepairCandidate],
-    rng: random.Random,
-) -> list[RepairCandidate]:
+def _repair_randomly(partial, removed: Sequence[str], repairs: Sequence[RepairCandidate],
+                     rng: random.Random) -> list[RepairCandidate]:
     choices: list[RepairCandidate] = []
     for container_id in removed:
         options = _available_repairs(partial, repairs, container_id, choices)
@@ -99,12 +85,122 @@ def _finish_greedily(state: ContainerStackState) -> ContainerStackState:
     return working
 
 
-def random_vlns(
-    initial_state: ContainerStackState,
-    *,
-    seed: int = 0,
-    iterations: int = 100,
-) -> VlnsResult:
+def _state_snapshot(state: ContainerStackState) -> dict:
+    return {
+        "stacks": [list(stack) for stack in state.stacks],
+        "destinations": list(state.stack_destinations),
+        "moves": state.moves,
+        "delivered": list(state.delivered),
+    }
+
+
+def _candidate_snapshot(candidate) -> dict:
+    return {"id": candidate.id, "description": candidate.description}
+
+
+def _repair_snapshot(candidate: RepairCandidate) -> dict:
+    return {
+        "id": candidate.id,
+        "container_id": candidate.container_id,
+        "destination_stack": candidate.destination_stack,
+        "description": candidate.description,
+    }
+
+
+def guided_vlns(initial_state: ContainerStackState, destroy_selector, repair_selector,
+                *, iterations: int = 100, capture_trace: bool = False) -> VlnsResult:
+    """VLNS with injectable selectors and an optional observational replay trace."""
+    from .oracle import best_repair_plan, destroy_landscape
+
+    current = initial_state
+    current_score = projected_objective(current)
+    destroy_counts: list[int] = []
+    repair_counts: list[int] = []
+    destroy_regrets: list[float] = []
+    repair_regrets: list[float] = []
+    trace: list[dict] = []
+
+    for iteration in range(iterations):
+        destroys = generate_destroy_candidates(current)
+        if not destroys:
+            break
+
+        before = _state_snapshot(current)
+        destroy_land = destroy_landscape(current, destroys)
+        finite_destroy = [entry.score for entry in destroy_land if entry.score != float("inf")]
+        best_destroy_score = min(finite_destroy) if finite_destroy else float("inf")
+        destroy_counts.append(len(destroys))
+
+        destroy = destroy_selector.select(current, destroys)
+        selected_destroy_score = next(
+            entry.score for entry in destroy_land if entry.candidate.id == destroy.id
+        )
+        if selected_destroy_score != float("inf") and best_destroy_score != float("inf"):
+            destroy_regrets.append(selected_destroy_score - best_destroy_score)
+
+        partial = apply_destroy(current, destroy)
+        repairs = generate_repair_candidates(partial)
+        repair_counts.append(len(repairs))
+
+        select_all = getattr(repair_selector, "select_all", None)
+        if callable(select_all):
+            choices = list(select_all(partial, repairs, partial.removed))
+        else:
+            choices = []
+            for container_id in partial.removed:
+                options = _available_repairs(partial, repairs, container_id, choices)
+                if not options:
+                    choices = []
+                    break
+                choices.append(repair_selector.select_for_container(
+                    partial.state, options, container_id
+                ))
+
+        best_repair_score = best_repair_plan(partial).score
+        repaired = apply_repair(partial, choices) if choices else None
+        candidate_score = projected_objective(repaired) if repaired is not None else float("inf")
+        if candidate_score != float("inf") and best_repair_score != float("inf"):
+            repair_regrets.append(candidate_score - best_repair_score)
+
+        accepted = candidate_score < current_score
+        if accepted:
+            current = repaired
+            current_score = candidate_score
+
+        if capture_trace:
+            trace.append({
+                "iteration": iteration,
+                "before": before,
+                "destroy_candidates": [_candidate_snapshot(c) for c in destroys],
+                "destroy_scores": {e.candidate.id: e.score for e in destroy_land},
+                "selected_destroy": destroy.id,
+                "best_destroy_score": best_destroy_score,
+                "selected_destroy_score": selected_destroy_score,
+                "removed": list(partial.removed),
+                "repair_candidates": [_repair_snapshot(c) for c in repairs],
+                "selected_repairs": [_repair_snapshot(c) for c in choices],
+                "best_repair_score": best_repair_score,
+                "candidate_projected_objective": candidate_score,
+                "accepted": accepted,
+                "score_after": current_score,
+            })
+
+    final_state = _finish_greedily(current)
+    n = len(destroy_counts)
+    return VlnsResult(
+        state=final_state,
+        evaluation=evaluate(final_state),
+        iterations=iterations,
+        best_projected_objective=current_score,
+        mean_destroy_candidates=sum(destroy_counts) / n if n else 0.0,
+        mean_repair_candidates=sum(repair_counts) / len(repair_counts) if repair_counts else 0.0,
+        mean_destroy_regret=sum(destroy_regrets) / len(destroy_regrets) if destroy_regrets else 0.0,
+        mean_repair_regret=sum(repair_regrets) / len(repair_regrets) if repair_regrets else 0.0,
+        trace=tuple(trace),
+    )
+
+
+def random_vlns(initial_state: ContainerStackState, *, seed: int = 0, iterations: int = 100) -> VlnsResult:
     """Random Destroy + Random Repair VLNS baseline."""
     rng = random.Random(seed)
     current = initial_state
@@ -114,26 +210,21 @@ def random_vlns(
         destroys = generate_destroy_candidates(current)
         if not destroys:
             break
-
         destroy = rng.choice(destroys)
         partial = apply_destroy(current, destroy)
         repairs = generate_repair_candidates(partial)
         choices = _repair_randomly(partial, partial.removed, repairs, rng)
         if not choices:
             continue
-
         repaired = apply_repair(partial, choices)
         candidate_score = projected_objective(repaired)
-
         if candidate_score < current_score:
             current = repaired
             current_score = candidate_score
 
     final_state = _finish_greedily(current)
     return VlnsResult(
-        state=final_state,
-        evaluation=evaluate(final_state),
-        iterations=iterations,
+        state=final_state, evaluation=evaluate(final_state), iterations=iterations,
         best_projected_objective=current_score,
     )
 
@@ -158,103 +249,6 @@ class _RandomRepair:
             raise ValueError(f"no repair candidates for {container_id}")
         return self.rng.choice(scoped)
 
-
-def guided_vlns(
-    initial_state: ContainerStackState,
-    destroy_selector,
-    repair_selector,
-    *,
-    iterations: int = 100,
-) -> VlnsResult:
-    """VLNS with injectable Destroy and Repair selectors.
-
-    Also collect exact local-neighborhood diagnostics. These diagnostics answer
-    a narrow question: how much objective quality was available inside the
-    current neighborhood but missed by the selected candidate?
-    """
-    from .oracle import best_repair_plan, destroy_landscape
-
-    current = initial_state
-    current_score = projected_objective(current)
-    destroy_counts: list[int] = []
-    repair_counts: list[int] = []
-    destroy_regrets: list[float] = []
-    repair_regrets: list[float] = []
-
-    for _ in range(iterations):
-        destroys = generate_destroy_candidates(current)
-        if not destroys:
-            break
-
-        destroy_land = destroy_landscape(current, destroys)
-        finite_destroy = [
-            entry.score for entry in destroy_land if entry.score != float("inf")
-        ]
-        best_destroy_score = min(finite_destroy) if finite_destroy else float("inf")
-        destroy_counts.append(len(destroys))
-
-        destroy = destroy_selector.select(current, destroys)
-        selected_destroy_score = next(
-            entry.score for entry in destroy_land if entry.candidate.id == destroy.id
-        )
-        if selected_destroy_score != float("inf") and best_destroy_score != float("inf"):
-            destroy_regrets.append(selected_destroy_score - best_destroy_score)
-
-        partial = apply_destroy(current, destroy)
-        repairs = generate_repair_candidates(partial)
-        repair_counts.append(len(repairs))
-
-        # OracleRepairSelector can optimize the whole repair combination.
-        select_all = getattr(repair_selector, "select_all", None)
-        if callable(select_all):
-            choices = list(select_all(partial, repairs, partial.removed))
-        else:
-            choices = []
-            for container_id in partial.removed:
-                options = _available_repairs(
-                    partial, repairs, container_id, choices
-                )
-                if not options:
-                    choices = []
-                    break
-                choice = repair_selector.select_for_container(
-                    partial.state, options, container_id
-                )
-                choices.append(choice)
-
-        if not choices:
-            continue
-
-        best_repair_score = best_repair_plan(partial).score
-        repaired = apply_repair(partial, choices)
-        candidate_score = projected_objective(repaired)
-        if candidate_score != float("inf") and best_repair_score != float("inf"):
-            repair_regrets.append(candidate_score - best_repair_score)
-
-        if candidate_score < current_score:
-            current = repaired
-            current_score = candidate_score
-
-    final_state = _finish_greedily(current)
-    n = len(destroy_counts)
-    return VlnsResult(
-        state=final_state,
-        evaluation=evaluate(final_state),
-        iterations=iterations,
-        best_projected_objective=current_score,
-        mean_destroy_candidates=sum(destroy_counts) / n if n else 0.0,
-        mean_repair_candidates=(
-            sum(repair_counts) / len(repair_counts) if repair_counts else 0.0
-        ),
-        mean_destroy_regret=(
-            sum(destroy_regrets) / len(destroy_regrets)
-            if destroy_regrets else 0.0
-        ),
-        mean_repair_regret=(
-            sum(repair_regrets) / len(repair_regrets)
-            if repair_regrets else 0.0
-        ),
-    )
 
 def make_random_vlns_selectors(seed: int = 0):
     """Return reproducible Random Destroy and Random Repair selectors."""
