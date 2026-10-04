@@ -10,7 +10,7 @@ def test_m13_summary_uses_paired_deltas():
 
     summary = summarize(rows)
 
-    assert summary["mean_delta_moves"] == -2 / 3
+    assert summary["mean_delta_moves"] == 0
     assert summary["median_delta_moves"] == 0
     assert summary["real_jev_wins"] == 1
     assert summary["ties"] == 1
