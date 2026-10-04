@@ -28,5 +28,5 @@ def test_m12_report_marks_fallbacks_and_live_jev():
     }
     report = render_report(result)
     assert "Live JEV Destroy selector" in report
-    assert "Fallbacks" in report
-    assert "fallback count is reported separately" in report
+    assert "| Mode | Runs | Decisions | Top-1 rate | Mean rank | Mean regret | Normalized regret | JEV calls | Fallbacks | Cost USD |" in report
+    assert "| real-jev-random | 1 | 2 | 0.500 | 2.00 | 1.000 | 0.500 | 2 | 1 | 0.010000 |" in report
