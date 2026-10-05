@@ -29,3 +29,36 @@ def test_zero_iteration_budget_is_reported_as_zero():
     state = make_seeded_state(42)
     result = random_vlns(state, seed=7, iterations=0, destroy_max_stacks=3)
     assert result.iterations == 0
+
+
+def test_m18_comparison_script_produces_complete_rows():
+    """The documented M18 command must run and emit every required field.
+
+    The script is imported here because the suite previously exercised the
+    library only, which is how the ``evaluation.moves`` attribute error
+    reached a green CI run.
+    """
+    import importlib.util
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    spec = importlib.util.spec_from_file_location(
+        "compare_neighborhood_sizes",
+        root / "experiments" / "compare_neighborhood_sizes.py",
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    payload = module.run([1, 2], 5, 3, False)
+
+    assert len(payload["results"]) == 6  # 2 seeds x K=1,2,3
+    required = (
+        "seed", "k", "iterations", "requested_iterations",
+        "moves", "projected_objective", "feasible", "mean_destroy_candidates",
+    )
+    for row in payload["results"]:
+        assert all(field in row for field in required)
+        assert row["iterations"] == row["requested_iterations"] == 5
+        assert isinstance(row["moves"], int)
+    assert len(payload["paired_deltas"]) == 4  # 2 seeds x K=2,3
+    assert module.render(payload)

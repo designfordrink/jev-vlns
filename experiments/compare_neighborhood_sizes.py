@@ -22,7 +22,7 @@ def run(seeds, iterations, max_k, adjacent_only):
                 destroy_min_stacks=1,destroy_max_stacks=k,
                 destroy_include_non_adjacent=not adjacent_only)
             rows.append({"seed":seed,"k":k,"adjacent_only":adjacent_only,
-                "iterations":int(result.iterations),"requested_iterations":iterations,"moves":int(result.evaluation.moves),
+                "iterations":int(result.iterations),"requested_iterations":iterations,"moves":int(result.evaluation.metrics["moves"]),
                 "projected_objective":float(result.best_projected_objective),
                 "feasible":bool(result.evaluation.feasible),
                 "mean_destroy_candidates":float(result.mean_destroy_candidates)})
