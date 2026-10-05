@@ -1,0 +1,145 @@
+{
+  "jev_totals": {
+    "calls": 250,
+    "cost_usd": 0.029215620000000005,
+    "failures": 0,
+    "fallbacks": 0,
+    "input_tokens": 695610,
+    "invalid_choice": 0,
+    "low_confidence": 0,
+    "output_tokens": 46117,
+    "successes": 250
+  },
+  "per_run": [
+    {
+      "decisions": 50.0,
+      "jev_stats": {
+        "average_latency_ms": 1011.0956499911845,
+        "calls": 50,
+        "cost_usd": 0.005792430000000005,
+        "failures": 0,
+        "fallbacks": 0,
+        "input_tokens": 137915,
+        "invalid_choice": 0,
+        "low_confidence": 0,
+        "output_tokens": 9305,
+        "successes": 50
+      },
+      "mean_normalized_regret": 0.95,
+      "mean_rank": 9.58,
+      "mean_regret": 1.62,
+      "mode": "real-jev-random",
+      "seed": 1,
+      "top1_rate": 0.0
+    },
+    {
+      "decisions": 50.0,
+      "jev_stats": {
+        "average_latency_ms": 855.69101001136,
+        "calls": 50,
+        "cost_usd": 0.005885249999999999,
+        "failures": 0,
+        "fallbacks": 0,
+        "input_tokens": 140125,
+        "invalid_choice": 0,
+        "low_confidence": 0,
+        "output_tokens": 9200,
+        "successes": 50
+      },
+      "mean_normalized_regret": 1.0,
+      "mean_rank": 10.0,
+      "mean_regret": 1.9,
+      "mode": "real-jev-random",
+      "seed": 2,
+      "top1_rate": 0.0
+    },
+    {
+      "decisions": 50.0,
+      "jev_stats": {
+        "average_latency_ms": 962.5025700079277,
+        "calls": 50,
+        "cost_usd": 0.005881679999999999,
+        "failures": 0,
+        "fallbacks": 0,
+        "input_tokens": 140040,
+        "invalid_choice": 0,
+        "low_confidence": 0,
+        "output_tokens": 9200,
+        "successes": 50
+      },
+      "mean_normalized_regret": 0.96,
+      "mean_rank": 9.52,
+      "mean_regret": 1.92,
+      "mode": "real-jev-random",
+      "seed": 3,
+      "top1_rate": 0.0
+    },
+    {
+      "decisions": 50.0,
+      "jev_stats": {
+        "average_latency_ms": 1784.7762719821185,
+        "calls": 50,
+        "cost_usd": 0.005870969999999999,
+        "failures": 0,
+        "fallbacks": 0,
+        "input_tokens": 139785,
+        "invalid_choice": 0,
+        "low_confidence": 0,
+        "output_tokens": 9200,
+        "successes": 50
+      },
+      "mean_normalized_regret": 1.0,
+      "mean_rank": 12.94,
+      "mean_regret": 1.98,
+      "mode": "real-jev-random",
+      "seed": 4,
+      "top1_rate": 0.0
+    },
+    {
+      "decisions": 50.0,
+      "jev_stats": {
+        "average_latency_ms": 1466.4279179880396,
+        "calls": 50,
+        "cost_usd": 0.0057852900000000046,
+        "failures": 0,
+        "fallbacks": 0,
+        "input_tokens": 137745,
+        "invalid_choice": 0,
+        "low_confidence": 0,
+        "output_tokens": 9212,
+        "successes": 50
+      },
+      "mean_normalized_regret": 0.95,
+      "mean_rank": 7.18,
+      "mean_regret": 1.18,
+      "mode": "real-jev-random",
+      "seed": 5,
+      "top1_rate": 0.02
+    }
+  ],
+  "protocol": {
+    "base_url": "https://openrouter.ai/api",
+    "iterations": 50,
+    "mode": "real-jev-random",
+    "model": "typesafe/jev-1.13",
+    "offline": false,
+    "oracle_diagnostic_only": true,
+    "repair_selector": "random",
+    "seeds": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ]
+  },
+  "summary": {
+    "real-jev-random": {
+      "mean_normalized_regret": 0.9719999999999999,
+      "mean_rank": 9.844,
+      "mean_regret": 1.72,
+      "runs": 5,
+      "top1_rate": 0.004
+    }
+  }
+}
