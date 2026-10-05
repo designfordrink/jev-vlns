@@ -259,6 +259,7 @@ def random_vlns(
         state=final_state,
         evaluation=evaluate(final_state),
         iterations=n,
+        best_projected_objective=current_score,
         search_state=current,
         mean_destroy_candidates=sum(destroy_counts) / n if n else 0.0,
     )
