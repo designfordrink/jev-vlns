@@ -33,11 +33,23 @@ def summarize(rows: list[dict]) -> dict:
         "mean_real_jev_moves": mean(row["real_jev_moves"] for row in rows),
         "mean_delta_moves": mean(deltas),
         "median_delta_moves": median(deltas),
+        "min_delta_moves": min(deltas),
+        "max_delta_moves": max(deltas),
         "real_jev_wins": wins,
         "ties": ties,
+        "losses": sum(delta > 0 for delta in deltas),
         "real_jev_win_rate": wins / len(rows) if rows else 0.0,
         "mean_fallbacks": mean(row["fallbacks"] for row in rows),
         "total_calls": sum(row["jev_calls"] for row in rows),
+        "total_fallbacks": sum(row["fallbacks"] for row in rows),
+        "total_successes": sum(row.get("successes", 0) for row in rows),
+        "all_feasible": all(
+            row.get("random_feasible", True) and row.get("real_jev_feasible", True)
+            for row in rows
+        ),
+        "mean_latency_ms": mean(row.get("average_latency_ms", 0.0) for row in rows),
+        "total_input_tokens": sum(row.get("input_tokens", 0) for row in rows),
+        "total_output_tokens": sum(row.get("output_tokens", 0) for row in rows),
         "total_cost_usd": sum(row["cost_usd"] for row in rows),
     }
 
@@ -80,12 +92,29 @@ def render_markdown(
         f"- Real JEV mean moves: **{summary['mean_real_jev_moves']:.3f}**",
         f"- Mean paired delta (JEV − Random): **{summary['mean_delta_moves']:.3f}**",
         f"- Median paired delta: **{summary['median_delta_moves']:.3f}**",
-        f"- Real JEV wins: **{summary['real_jev_wins']}/{summary['runs']}** "
-        f"({summary['real_jev_win_rate']:.1%})",
-        f"- Ties: **{summary['ties']}**",
-        f"- Mean fallbacks/run: **{summary['mean_fallbacks']:.2f}**",
-        f"- Total JEV calls: **{summary['total_calls']}**",
+        f"- Min / max paired delta: **{summary.get('min_delta_moves', 0):+d} / "
+        f"{summary.get('max_delta_moves', 0):+d}**",
+        f"- Real JEV wins / ties / losses: **{summary['real_jev_wins']} / "
+        f"{summary['ties']} / {summary.get('losses', 0)}** of {summary['runs']} "
+        f"({summary['real_jev_win_rate']:.1%} wins)",
+        f"- All runs feasible: **{summary.get('all_feasible', True)}**",
+        f"- Total JEV calls: **{summary['total_calls']}**, successes "
+        f"**{summary.get('total_successes', 0)}**, fallbacks "
+        f"**{summary.get('total_fallbacks', 0)}**",
+        f"- Mean latency: **{summary.get('mean_latency_ms', 0.0):.1f} ms**",
+        f"- Tokens in/out: **{summary.get('total_input_tokens', 0)}** / "
+        f"**{summary.get('total_output_tokens', 0)}**",
         f"- Total API cost: **$ {summary['total_cost_usd']:.6f}**",
+        "",
+        "## Paired deltas",
+        "",
+        "delta = JEV moves − Random moves; negative favours Real JEV.",
+        "",
+        "| Comparison | Wins | Ties | Losses | Mean Δ | Median Δ |",
+        "|---|---:|---:|---:|---:|---:|",
+        f"| Real JEV vs Random (K=2) | {summary['real_jev_wins']} | "
+        f"{summary['ties']} | {summary.get('losses', 0)} | "
+        f"{summary['mean_delta_moves']:+.3f} | {summary['median_delta_moves']:+.3f} |",
         "",
         "## Interpretation rule",
         "",
@@ -130,8 +159,15 @@ def main() -> int:
             "seed": seed,
             "random_moves": random_result["moves"],
             "real_jev_moves": real_result["moves"],
+            "random_feasible": random_result["feasible"],
+            "real_jev_feasible": real_result["feasible"],
             "fallbacks": real_result["destroy_jev_fallbacks"],
             "jev_calls": real_result["destroy_jev_calls"],
+            "successes": real_result["destroy_jev_calls"]
+            - real_result["destroy_jev_fallbacks"],
+            "average_latency_ms": real_result["destroy_jev_average_latency_ms"],
+            "input_tokens": real_result["destroy_jev_input_tokens"],
+            "output_tokens": real_result["destroy_jev_output_tokens"],
             "cost_usd": real_result["destroy_jev_cost_usd"],
         }
         rows.append(row)

@@ -145,6 +145,11 @@ def test_jev_client_parses_current_typesafe_response(monkeypatch):
     assert client.stats.total_input_tokens == 123
     assert result.cost_usd == 0.000123
     assert client.stats.total_cost_usd == 0.000123
+    # Latency is measured per call and must also be aggregated, otherwise
+    # average_latency_ms silently stays at 0.0 for every experiment.
+    assert result.latency_ms > 0
+    assert client.stats.total_latency_ms == result.latency_ms
+    assert client.stats.average_latency_ms == result.latency_ms
     assert captured["body"]["questions"]["choice"]["type"] == "choice"
     assert captured["body"]["questions"]["choice"]["criteria"] == {
         "d1": "first",

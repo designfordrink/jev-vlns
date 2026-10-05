@@ -52,11 +52,16 @@ def summarize_choice_metrics(documents: list[dict[str, Any]]) -> dict[str, Any]:
     per_run = []
     for document in documents:
         metrics = choice_metrics(document.get("trace", []))
-        per_run.append({
+        row: dict[str, Any] = {
             "mode": document.get("mode"),
             "seed": document.get("seed"),
             **metrics,
-        })
+        }
+        # Live-JEV telemetry travels with the run so reports can aggregate
+        # calls, fallbacks and cost. Offline documents have no such block.
+        if "jev_stats" in document:
+            row["jev_stats"] = document["jev_stats"]
+        per_run.append(row)
 
     grouped: dict[str, list[dict[str, Any]]] = {}
     for row in per_run:

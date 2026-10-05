@@ -129,6 +129,9 @@ class JevClient:
         self.stats.total_input_tokens += input_tokens
         self.stats.total_output_tokens += output_tokens
         self.stats.total_cost_usd += cost_usd
+        # Accumulate latency so average_latency_ms reports something other
+        # than 0.0. The per-call value was computed but never aggregated.
+        self.stats.total_latency_ms += latency_ms
 
         return DecisionResult(
             choice=choice,
