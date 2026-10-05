@@ -14,6 +14,9 @@ from .repair import RepairCandidate, apply_repair, generate_repair_candidates
 class VlnsResult:
     state: ContainerStackState
     evaluation: object
+    # Best virtual search configuration before deterministic final completion.
+    # This is not an executable plan from the initial state.
+    search_state: ContainerStackState | None = None
     iterations: int
     best_projected_objective: float
     mean_destroy_candidates: float = 0.0
@@ -225,6 +228,7 @@ def random_vlns(initial_state: ContainerStackState, *, seed: int = 0, iterations
     final_state = _finish_greedily(current)
     return VlnsResult(
         state=final_state, evaluation=evaluate(final_state), iterations=iterations,
+        search_state=current,
         best_projected_objective=current_score,
     )
 
