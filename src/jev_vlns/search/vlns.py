@@ -14,11 +14,11 @@ from .repair import RepairCandidate, apply_repair, generate_repair_candidates
 class VlnsResult:
     state: ContainerStackState
     evaluation: object
+    iterations: int
+    best_projected_objective: float
     # Best virtual search configuration before deterministic final completion.
     # This is not an executable plan from the initial state.
     search_state: ContainerStackState | None = None
-    iterations: int
-    best_projected_objective: float
     mean_destroy_candidates: float = 0.0
     mean_repair_candidates: float = 0.0
     mean_destroy_regret: float = 0.0
