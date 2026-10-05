@@ -56,6 +56,31 @@ M9 специально фиксирует Repair как Random и сравни�
 
 ---
 
+## 2A. M15 Research Validity Reset
+
+Перед новыми live-выводами проект проходит последовательность:
+
+1. семантика objective;
+2. валидность исполняемого решения;
+3. настоящая VLNS;
+4. exact reference;
+5. корректный matched-state choice-quality benchmark;
+6. live JEV M12;
+7. end-to-end M13.
+
+Текущие исторические benchmark numbers не считаются доказательством качества
+Real JEV: они относятся к configuration-search / greedy-proxy objective до
+завершения M15.
+
+Основной end-to-end metric после миграции должен быть **validated executable
+objective** — стоимость независимо воспроизводимой legal action sequence от
+initial state.
+
+См. [Research Remediation Plan](RESEARCH_REMEDIATION_PLAN.md) и
+[Objective Semantics](OBJECTIVE_SEMANTICS.md).
+
+---
+
 ## 3. Основной архитектурный принцип: candidate-first
 
 Правильная граница ответственности:
