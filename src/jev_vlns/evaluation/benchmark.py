@@ -128,6 +128,9 @@ def run_benchmark(
     seed: int = 42,
     iterations: int = 25,
     mode: str = "random-random",
+    destroy_min_stacks: int = 2,
+    destroy_max_stacks: int = 2,
+    destroy_include_non_adjacent: bool = True,
 ) -> BenchmarkResult:
     """Run one controlled JEV/VLNS configuration.
 
@@ -186,6 +189,9 @@ def run_benchmark(
         destroy_selector,
         repair_selector,
         iterations=iterations,
+        destroy_min_stacks=destroy_min_stacks,
+        destroy_max_stacks=destroy_max_stacks,
+        destroy_include_non_adjacent=destroy_include_non_adjacent,
     )
 
     return BenchmarkResult(
@@ -245,6 +251,9 @@ def run_real_jev_destroy_benchmark(
     seed: int = 42,
     iterations: int = 25,
     config: JevConfig | None = None,
+    destroy_min_stacks: int = 2,
+    destroy_max_stacks: int = 2,
+    destroy_include_non_adjacent: bool = True,
 ) -> BenchmarkResult:
     """Run the M9 experiment: real JEV Destroy + Random Repair.
 
@@ -278,6 +287,9 @@ def run_real_jev_destroy_benchmark(
         selector,
         random_repair,
         iterations=iterations,
+        destroy_min_stacks=destroy_min_stacks,
+        destroy_max_stacks=destroy_max_stacks,
+        destroy_include_non_adjacent=destroy_include_non_adjacent,
     )
     return BenchmarkResult(
         mode="real-jev-random",

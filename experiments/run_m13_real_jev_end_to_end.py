@@ -42,7 +42,16 @@ def summarize(rows: list[dict]) -> dict:
     }
 
 
-def render_markdown(rows: list[dict], summary: dict, *, seeds: list[int], iterations: int) -> str:
+def render_markdown(
+    rows: list[dict],
+    summary: dict,
+    *,
+    seeds: list[int],
+    iterations: int,
+    destroy_min_stacks: int = 2,
+    destroy_max_stacks: int = 2,
+    destroy_include_non_adjacent: bool = True,
+) -> str:
     lines = [
         "# M13 — Real JEV End-to-End Validation",
         "",
@@ -50,6 +59,7 @@ def render_markdown(rows: list[dict], summary: dict, *, seeds: list[int], iterat
         "",
         f"- seeds: {seeds}",
         f"- iterations: {iterations}",
+        f"- destroy neighborhood: K={destroy_min_stacks}..{destroy_max_stacks}, non-adjacent={destroy_include_non_adjacent}",
         "",
         "## Paired results",
         "",
@@ -93,7 +103,13 @@ def main() -> int:
     parser.add_argument("--seeds", nargs="+", type=int, default=[1, 2, 3, 4, 5])
     parser.add_argument("--iterations", type=int, default=50)
     parser.add_argument("--output", type=Path, default=None)
+    parser.add_argument("--destroy-min-stacks", type=int, default=2)
+    parser.add_argument("--destroy-max-stacks", type=int, default=2)
+    parser.add_argument("--destroy-include-non-adjacent", action=argparse.BooleanOptionalAction, default=True)
     args = parser.parse_args()
+
+    if args.destroy_min_stacks != 2 or args.destroy_max_stacks != 2:
+        parser.error("M19 requires fixed K=2 Destroy neighborhoods")
 
     rows = []
     for seed in args.seeds:
@@ -105,6 +121,9 @@ def main() -> int:
         real_result = run_real_jev_destroy_benchmark(
             seed=seed,
             iterations=args.iterations,
+            destroy_min_stacks=args.destroy_min_stacks,
+            destroy_max_stacks=args.destroy_max_stacks,
+            destroy_include_non_adjacent=args.destroy_include_non_adjacent,
         ).as_dict()
 
         row = {
@@ -129,6 +148,9 @@ def main() -> int:
         "experiment": "M13",
         "seeds": args.seeds,
         "iterations": args.iterations,
+        "destroy_min_stacks": args.destroy_min_stacks,
+        "destroy_max_stacks": args.destroy_max_stacks,
+        "destroy_include_non_adjacent": args.destroy_include_non_adjacent,
         "results": rows,
         "summary": summary,
     }
@@ -139,7 +161,14 @@ def main() -> int:
         json_path.parent.mkdir(parents=True, exist_ok=True)
         json_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         md_path.write_text(
-            render_markdown(rows, summary, seeds=args.seeds, iterations=args.iterations),
+            render_markdown(
+                rows, summary,
+                seeds=args.seeds,
+                iterations=args.iterations,
+                destroy_min_stacks=args.destroy_min_stacks,
+                destroy_max_stacks=args.destroy_max_stacks,
+                destroy_include_non_adjacent=args.destroy_include_non_adjacent,
+            ),
             encoding="utf-8",
         )
         print(f"Saved: {json_path}")
