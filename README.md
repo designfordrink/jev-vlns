@@ -54,25 +54,45 @@ JEV does **not** own environment rules, validation, objective calculation or sta
 
 ## Research reset: M15+
 
-The project is now following the methodological remediation plan in [Research Remediation Plan](docs/RESEARCH_REMEDIATION_PLAN.md). Before new live JEV conclusions, the work proceeds in this order: objective semantics → executable solution validity → real VLNS → exact reference → matched-state choice quality → live M12 → end-to-end M13.
+The project follows the methodological remediation plan in [Research Remediation Plan](docs/RESEARCH_REMEDIATION_PLAN.md). The key distinction is between:
 
-The current historical benchmark numbers are treated as configuration-search / greedy-proxy results until the executable objective is validated. See [Objective Semantics](docs/OBJECTIVE_SEMANTICS.md).
+- **search/projected objective** — the objective used while exploring virtual Destroy/Repair configurations;
+- **executable objective** — the number of actions in a deterministic executable plan;
+- **exact reference** — an exact small-instance optimum, when available.
 
-## Current research stage
+Until the physical reconfiguration path from an initial state to a VLNS virtual configuration is modeled, historical VLNS numbers must be described as **projected-search / greedy-completion evidence**, not as validated physical-move performance.
 
-The repository has implemented M9–M19 protocol infrastructure. M18 selected K=2 as the next Destroy neighborhood; M19 makes that choice explicit for the live Real JEV experiment. The current engineering focus is improving the state-aware decision context before running the live M12/M13 series.
+See [Objective Semantics](docs/OBJECTIVE_SEMANTICS.md) and [Research Remediation Plan](docs/RESEARCH_REMEDIATION_PLAN.md).
 
-M9 keeps Repair fixed to Random and compares:
+## Current research stage: M20
 
-| Destroy | Repair |
-|---|---|
-| Random | Random |
-| Oracle | Random |
-| Real JEV | Random |
+M18 established the protocol for variable Destroy neighborhoods and produced a matched 10-seed comparison:
 
-The purpose is to measure the quality of JEV's local Destroy choices separately from the quality of the Repair mechanism.
+| K | Mean moves | Mean candidates |
+|---:|---:|---:|
+| 1 | 15.10 | 4.50 |
+| 2 | 14.80 | 12.47 |
+| 3 | 14.80 | 20.60 |
 
-The benchmark records final moves, feasibility, candidate counts, regret, JEV calls, fallback events, latency, token usage and provider-reported cost.
+K=2 was selected for the next live experiment because it improved the mean over K=1 while K=3 provided no additional mean improvement and substantially enlarged the candidate set. The M18 evidence remains projected-search / greedy-completion evidence.
+
+M19 then tested **Real JEV Destroy + Random Repair** against **Random Destroy + Random Repair** with K=2, non-adjacent neighborhoods enabled, 50 iterations and seeds 1..5.
+
+M19 result:
+
+- Random mean: **15.8**
+- Real JEV mean: **17.4**
+- Mean paired delta (JEV − Random): **+1.6**
+- JEV wins: **0/5**
+- JEV calls: **250/250 successful**
+- Fallbacks: **0**
+- Choice quality: Top-1 **0.004**, mean rank **9.84**, mean normalized regret **0.972**
+
+This is the first strong negative live result. It is **not** explained by API failure, infeasibility or fallback. Real JEV made legal successful choices, but those choices were poor on the tested K=2 candidate landscape.
+
+The next step is therefore **M20 — JEV Decision Failure Analysis**. M20 is diagnostic only: it records every decision and tests positional, formatting, feature and objective/context hypotheses without changing the M19 protocol.
+
+See [M20 Local Execution Handoff](docs/LOCAL_NEXT_STEP_M20.md).
 
 ## Quick start
 
@@ -96,7 +116,7 @@ source .venv/bin/activate
 Windows PowerShell:
 
 ```powershell
-.venv\Scripts\Activate.ps1
+.venv\\Scripts\\Activate.ps1
 ```
 
 Install development dependencies:
@@ -155,12 +175,15 @@ Smoke test:
 python experiments/run_real_jev_destroy.py --seeds 1 --iterations 3
 ```
 
-M9 series:
+M19 fixed K=2 run:
 
-```bash
-python experiments/run_real_jev_destroy.py \
-  --seeds 1 2 3 4 5 \
-  --iterations 50
+```powershell
+python experiments/run_m13_real_jev_end_to_end.py `
+  --seeds 1 2 3 4 5 `
+  --iterations 50 `
+  --destroy-min-stacks 2 `
+  --destroy-max-stacks 2 `
+  --destroy-include-non-adjacent
 ```
 
 No real API key is stored in the repository.
@@ -174,7 +197,8 @@ No real API key is stored in the repository.
 - [M9 — Real JEV Destroy](docs/M9.md) — Real JEV Destroy protocol.
 - [M12 — Real JEV Choice Quality](docs/M12.md) — live selector-quality protocol.
 - [M13 — Real JEV End-to-End Validation](docs/M13.md) — paired live end-to-end protocol.
-- [M19 — Real JEV with K=2](docs/M19_REAL_JEV_K2.md) — fixed K=2 live experiment protocol.
+- [M19 — Real JEV with K=2](docs/M19_REAL_JEV_K2.md) — fixed K=2 live experiment protocol and result context.
+- [M20 — JEV Decision Failure Analysis](docs/LOCAL_NEXT_STEP_M20.md) — controlled diagnostic handoff.
 - [JEV State-Aware Context](docs/JEV_CONTEXT.md) — state-derived candidate context contract.
 - [.env.example](.env.example) — configuration template without secrets.
 
@@ -187,13 +211,12 @@ jev-vlns/
 │   ├── DEVELOPMENT.md
 │   ├── CI.md
 │   ├── EXPERIMENTS.md
-│   └── M9.md
+│   ├── M9.md
+│   ├── M19_REAL_JEV_K2.md
+│   └── LOCAL_NEXT_STEP_M20.md
 ├── src/jev_vlns/
 ├── tests/
 └── experiments/
-    ├── run_benchmark.py
-    ├── analyze_benchmark.py
-    └── runs/
 ```
 
 ## Research principles
@@ -204,38 +227,9 @@ jev-vlns/
 4. Compare against Random and Oracle controls.
 5. Fix seeds and budgets before comparing methods.
 6. Separate solver outcome, decision quality, runtime and API cost.
-7. Do not infer solver superiority from a single run.
+7. Diagnose negative results before optimizing the selector.
+8. Never leak Oracle/evaluation results into the live JEV request.
+9. Do not claim physical-move superiority until the executable reconfiguration path is modeled.
+10. Do not infer solver superiority from a single run.
 
-See [TRD.md](docs/TRD.md) for the full architecture and roadmap.
-
-## Roadmap
-
-```
-M0  Project foundation
- ↓
-M1  Container simulator
- ↓
-M2  Validator + objective
- ↓
-M3  Random + Greedy
- ↓
-M4  LNS
- ↓
-M5  Selector interface
- ↓
-M6  JEV Repair
- ↓
-M7  JEV Destroy
- ↓
-M8  JEV + VLNS
- ↓
-M9  Real JEV Destroy
- ↓
-M10 Visualization
- ↓
-M11 JEV Choice vs Score
- ↓
-M12 Learned local policy
- ↓
-M13 Railroad Blocking Problem
-```
+See [TRD.md](docs/TRD.md) for the architecture and roadmap.
