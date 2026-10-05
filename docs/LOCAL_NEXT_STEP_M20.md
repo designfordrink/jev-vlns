@@ -5,6 +5,8 @@
 
 ## 1. M19 finding
 
+> **Current status:** M19 is complete and merged. M20 is the next research step. It is a diagnostic stage, not an optimization stage.
+
 M19 is merged and protocol-valid.
 
 - K=2 fixed; non-adjacent neighborhoods enabled.
@@ -13,7 +15,7 @@ M19 is merged and protocol-valid.
 - Real JEV lost all 5 paired seeds.
 - Random mean = 15.8; Real JEV mean = 17.4; mean paired delta = +1.6.
 - Choice quality: Top-1 = 0.004; mean rank = 9.84; mean normalized regret = 0.972.
-- Three identical live executions changed exact per-seed deltas, but all had 0/5 JEV wins and positive mean delta.
+- Three identical live executions changed the exact per-seed deltas because the live JEV is stochastic, but all three runs had 0/5 JEV wins and a positive mean delta. Therefore the exact +1.6 value should not be treated as deterministic; the stable observation is the direction of the effect.
 
 Conclusion supported by M19: Real JEV made successful legal decisions, but its selections were systematically poor on the current K=2 candidate landscape.
 
@@ -36,14 +38,18 @@ Determine which mechanism best explains the poor selections. Candidate hypothese
 
 Do not choose a hypothesis before inspecting decision-level evidence.
 
-## 3. Methodological lock
+## 3. Why K=2 is locked
+
+M18 compared K=1, K=2 and K=3 under the same 50-iteration protocol and 10 seeds. K=2 and K=3 both had mean 14.80 projected moves, while K=1 had 15.10. K=2 was therefore chosen as the smallest neighborhood that showed the observed improvement over K=1 without paying the larger K=3 candidate-set expansion. M20 must keep K=2 so that its diagnosis remains comparable with M19.
+
+## 4. Methodological lock
 
 M20 must NOT change: JEV prompt, candidate serializer, K=2, non-adjacent=True, Random Repair, acceptance, seeds, iteration budget, objective, or candidate generation.
 
 The only new capability is diagnostic recording.
 Oracle scores may be computed after the JEV response, but must NEVER be included in the JEV request.
 
-## 4. Preconditions
+## 5. Preconditions
 
 Run from repository root:
 
@@ -56,13 +62,13 @@ Run from repository root:
 
 Use current main containing merged M19. Stop if tests fail.
 
-## 5. Diagnostic live run
+## 6. Diagnostic live run
 
 Repeat the M19 protocol: seeds 1..5, 50 iterations, K=2 exactly, non-adjacent enabled, Real JEV Destroy, Random Repair, strict-improvement acceptance.
 
 Run a diagnostic version of the M19 choice-quality/end-to-end experiment that records EVERY JEV decision. Prefer existing M10 replay/trace infrastructure. If insufficient, add the smallest instrumentation necessary without changing solver behavior.
 
-## 6. Required decision trace
+## 7. Required decision trace
 
 For every JEV decision record:
 
@@ -81,11 +87,11 @@ For EVERY candidate, computed only after the response:
 
 For the selected candidate also record rank, normalized regret, objective and available candidate features.
 
-## 7. Security
+## 8. Security
 
 Never write API keys, Authorization headers or raw .env files into the trace or repository. Sanitize request objects if necessary.
 
-## 8. Mandatory validation
+## 9. Mandatory validation
 
 Expected decision count: 5 × 50 = 250.
 
@@ -97,7 +103,7 @@ Verify for every decision:
 
 If any of these fail, stop and report an implementation/measurement failure.
 
-## 9. Required analyses
+## 10. Required analyses
 
 ### A. Recompute choice quality
 From the trace calculate Top-1, mean rank, mean regret and normalized regret. Break them down by seed, iteration range and candidate count.
@@ -117,7 +123,7 @@ For each decision record whether its selected candidate led to an accepted itera
 
 Use this only to explain the existing M19 result; do not replace the primary M19 metric.
 
-## 10. Required artifacts
+## 11. Required artifacts
 
 Create:
 
@@ -137,7 +143,7 @@ The report must contain:
 7. Accepted/rejected linkage.
 8. Evidence assessment for every hypothesis.
 
-## 11. Decision rule
+## 12. Decision rule
 
 Case A — implementation/measurement issue:
 M20 STATUS: FAIL — measurement/implementation issue
@@ -156,7 +162,7 @@ M20 STATUS: INCONCLUSIVE — additional controlled diagnostic needed
 
 Do not change the prompt automatically for any case.
 
-## 12. What NOT to do
+## 13. What NOT to do
 
 Do not change prompt, K, candidate ordering, serializer, Repair, acceptance, objective or seeds. Do not send Oracle scores to JEV. Do not remove bad seeds. Do not optimize until Top-1 improves. Do not claim statistical significance from this sample. Do not invent missing telemetry.
 
