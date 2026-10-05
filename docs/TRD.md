@@ -36,7 +36,7 @@ next iteration
 
 ## 2. Текущий статус
 
-Текущий исследовательский этап — **M9: Real JEV Destroy**.
+Реализованы этапы **M9–M13**: Real JEV Destroy, Visualization/Replay, JEV Choice vs Local Landscape, Real JEV Choice Quality и Real JEV End-to-End Validation. Перед live-запусками M12/M13 текущий инженерный шаг — сделать Destroy decision context state-aware.
 
 M9 специально фиксирует Repair как Random и сравнивает:
 
@@ -149,6 +149,18 @@ JEV возвращает выбор кандидата и confidence.
 API-specific формат не должен распространяться по solver-коду. HTTP и normalization изолированы в `src/jev_vlns/jev/`.
 
 ---
+
+## 6A. State-aware candidate context
+
+Для Destroy decision JEV получает не только глобальное сериализованное состояние, но и отдельный context для каждого legal candidate.
+
+Candidate context строится из текущего state непосредственно перед выбором и включает только локально релевантные факты: affected stack, stack destination, height, top container metadata и exposed container metadata.
+
+Это не переносит solver logic в JEV. Candidate generation, legality, execution, validation, objective и Oracle остаются за пределами JEV.
+
+Candidate context не содержит Oracle scores, rankings, regret или future evaluation results.
+
+Все runtime instructions и candidate context, передаваемые JEV, формируются на английском языке.
 
 ## 6. JEV client
 
