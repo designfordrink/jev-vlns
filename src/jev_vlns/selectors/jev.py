@@ -7,6 +7,7 @@ from jev_vlns.jev.types import JevClientProtocol
 T = TypeVar("T")
 Fallback = Callable[[Any, Sequence[T]], T]
 StateSerializer = Callable[[Any], Mapping[str, Any]]
+CandidateSerializer = Callable[[Any, Any], str]
 
 
 @dataclass
@@ -31,6 +32,7 @@ class JevSelector:
         objective: str | None = None,
         min_confidence: float = 0.0,
         state_serializer: StateSerializer | None = None,
+        candidate_serializer: CandidateSerializer | None = None,
     ):
         self.client = client
         self.fallback = fallback
@@ -39,6 +41,7 @@ class JevSelector:
         self.objective = objective
         self.min_confidence = min_confidence
         self.state_serializer = state_serializer or _default_state_serializer
+        self.candidate_serializer = candidate_serializer or _default_candidate_serializer
         self.stats = JevSelectorStats()
 
     def select(self, state: Any, candidates: Sequence[T]) -> T:
@@ -50,7 +53,7 @@ class JevSelector:
             candidate_id = _candidate_id(candidate)
             if candidate_id in candidate_map:
                 raise ValueError(f"duplicate candidate id: {candidate_id}")
-            candidate_map[candidate_id] = _candidate_description(candidate)
+            candidate_map[candidate_id] = self.candidate_serializer(state, candidate)
 
         state_data = self.state_serializer(state)
         from jev_vlns.jev.types import DecisionQuestion
@@ -91,6 +94,10 @@ def _candidate_id(candidate: Any) -> str:
 def _candidate_description(candidate: Any) -> str:
     value = getattr(candidate, "description", None)
     return value if isinstance(value, str) and value else repr(candidate)
+
+
+def _default_candidate_serializer(_state: Any, candidate: Any) -> str:
+    return _candidate_description(candidate)
 
 
 def _default_state_serializer(state: Any) -> Mapping[str, Any]:

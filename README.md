@@ -54,7 +54,7 @@ JEV does **not** own environment rules, validation, objective calculation or sta
 
 ## Current research stage
 
-The repository has reached the **M9 Real JEV Destroy** experiment.
+The repository has implemented M9–M13: Real JEV Destroy, Visualization/Replay, local choice-quality analysis, Real JEV Choice Quality, and Real JEV End-to-End Validation. The current engineering focus is improving the state-aware decision context before running the live M12/M13 series.
 
 M9 keeps Repair fixed to Random and compares:
 
@@ -165,7 +165,10 @@ No real API key is stored in the repository.
 - [CI Guide](docs/CI.md) — what GitHub Actions does and how to reproduce its checks locally.
 - [Experiments Guide](docs/EXPERIMENTS.md) — benchmark methodology, seeds, Oracle and regret.
 - [TRD](docs/TRD.md) — technical requirements and architecture.
-- [M9 — Real JEV Destroy](docs/M9.md) — current live JEV experiment.
+- [M9 — Real JEV Destroy](docs/M9.md) — Real JEV Destroy protocol.
+- [M12 — Real JEV Choice Quality](docs/M12.md) — live selector-quality protocol.
+- [M13 — Real JEV End-to-End Validation](docs/M13.md) — paired live end-to-end protocol.
+- [JEV State-Aware Context](docs/JEV_CONTEXT.md) — state-derived candidate context contract.
 - [.env.example](.env.example) — configuration template without secrets.
 
 ## Repository architecture
