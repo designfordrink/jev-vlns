@@ -1,4 +1,5 @@
 from dataclasses import dataclass, asdict
+import json
 from typing import Any
 
 from jev_vlns.container_stack.state import make_seeded_state
@@ -51,6 +52,75 @@ def _jev_state(state: Any) -> dict[str, Any]:
             "delivered": state.delivered,
         }
     return {"state": repr(state)}
+
+
+def _jev_destroy_candidate_context(state: Any, candidate: Any) -> str:
+    """Serialize only the state-derived context relevant to one Destroy choice."""
+    containers = {container.id: container for container in state.containers}
+    affected_stacks = []
+    for index in candidate.stack_indices:
+        stack = state.stacks[index]
+        top_id = stack[-1]
+        exposed_id = stack[-2] if len(stack) >= 2 else None
+        top = containers[top_id]
+        exposed = containers[exposed_id] if exposed_id is not None else None
+        affected_stacks.append(
+            {
+                "index": index,
+                "destination": state.stack_destinations[index],
+                "height_before": len(stack),
+                "top": {
+                    "id": top.id,
+                    "destination": top.destination,
+                    "priority": top.priority,
+                },
+                "exposed_after_destroy": (
+                    {
+                        "id": exposed.id,
+                        "destination": exposed.destination,
+                        "priority": exposed.priority,
+                    }
+                    if exposed is not None
+                    else None
+                ),
+            }
+        )
+    return json.dumps(
+        {
+            "operation": "destroy_top",
+            "affected_stacks": affected_stacks,
+        },
+        sort_keys=True,
+    )
+
+
+JEV_DESTROY_QUESTION = (
+    "Choose exactly one legal destroy neighborhood.\\n\\n"
+    "Goal: select the neighborhood most likely to reduce the final number "
+    "of container moves after the removed containers are repaired and the "
+    "arrangement is completed.\\n\\n"
+    "How to reason:\\n"
+    "- A container is delivered when it is on top of the stack whose "
+    "destination matches the container's destination.\\n"
+    "- Destroy removes the top container from each affected stack.\\n"
+    "- Removing a top container exposes the container immediately below it.\\n"
+    "- The removed containers are placed back during the repair phase on "
+    "legal non-full stacks.\\n"
+    "- After repair, the solver may greedily complete the arrangement using "
+    "the deterministic legal-action policy.\\n"
+    "- Consider stack destinations, container destinations, stack heights, "
+    "priorities, and the containers affected by each candidate.\\n"
+    "- Prefer candidates that are likely to expose useful containers, reduce "
+    "blocking, and create a promising arrangement for repair and completion.\\n\\n"
+    "Do not invent actions outside the provided candidates. Choose exactly "
+    "one candidate ID from the provided choices. Do not use future "
+    "evaluations, Oracle scores, candidate rankings, or regret information."
+)
+
+JEV_DESTROY_OBJECTIVE = (
+    "Minimize final total container moves after Random Repair and "
+    "deterministic greedy completion."
+)
 
 
 def run_benchmark(
@@ -195,15 +265,11 @@ def run_real_jev_destroy_benchmark(
             client,
             random_destroy.select,
             task="destroy",
-            question=(
-                "Choose which legal neighborhood to destroy before repair. "
-                "Prefer the neighborhood that is most likely to reduce the "
-                "future number of total container moves. Choose exactly one "
-                "candidate from the provided criteria."
-            ),
-            objective="minimize total moves after deterministic greedy repair",
+            question=JEV_DESTROY_QUESTION,
+            objective=JEV_DESTROY_OBJECTIVE,
             min_confidence=config.min_confidence,
             state_serializer=_jev_state,
+            candidate_serializer=_jev_destroy_candidate_context,
         )
     )
 
