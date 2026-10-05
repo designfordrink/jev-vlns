@@ -52,6 +52,12 @@ Next Iteration
 
 JEV does **not** own environment rules, validation, objective calculation or state mutation.
 
+## Research reset: M15+
+
+The project is now following the methodological remediation plan in [Research Remediation Plan](docs/RESEARCH_REMEDIATION_PLAN.md). Before new live JEV conclusions, the work proceeds in this order: objective semantics → executable solution validity → real VLNS → exact reference → matched-state choice quality → live M12 → end-to-end M13.
+
+The current historical benchmark numbers are treated as configuration-search / greedy-proxy results until the executable objective is validated. See [Objective Semantics](docs/OBJECTIVE_SEMANTICS.md).
+
 ## Current research stage
 
 The repository has implemented M9–M13: Real JEV Destroy, Visualization/Replay, local choice-quality analysis, Real JEV Choice Quality, and Real JEV End-to-End Validation. The current engineering focus is improving the state-aware decision context before running the live M12/M13 series.
