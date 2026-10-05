@@ -135,6 +135,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Run the M12 real-JEV choice-quality experiment.")
     parser.add_argument("--seeds", nargs="+", type=int, default=[1, 2, 3, 4, 5])
     parser.add_argument("--iterations", type=int, default=50)
+    parser.add_argument("--destroy-min-stacks", type=int, default=2)
+    parser.add_argument("--destroy-max-stacks", type=int, default=2)
+    parser.add_argument("--destroy-include-non-adjacent", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument(
         "--output",
         type=Path,
@@ -142,6 +145,9 @@ def main() -> int:
         help="Output stem; writes .json and .md",
     )
     args = parser.parse_args()
+
+    if args.destroy_min_stacks != 2 or args.destroy_max_stacks != 2:
+        parser.error("M19 requires fixed K=2 Destroy neighborhoods")
 
     config = JevConfig.from_environment()
     if not config.api_key:
