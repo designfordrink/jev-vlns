@@ -60,7 +60,7 @@ The current historical benchmark numbers are treated as configuration-search / g
 
 ## Current research stage
 
-The repository has implemented M9–M13: Real JEV Destroy, Visualization/Replay, local choice-quality analysis, Real JEV Choice Quality, and Real JEV End-to-End Validation. The current engineering focus is improving the state-aware decision context before running the live M12/M13 series.
+The repository has implemented M9–M19 protocol infrastructure. M18 selected K=2 as the next Destroy neighborhood; M19 makes that choice explicit for the live Real JEV experiment. The current engineering focus is improving the state-aware decision context before running the live M12/M13 series.
 
 M9 keeps Repair fixed to Random and compares:
 
@@ -174,6 +174,7 @@ No real API key is stored in the repository.
 - [M9 — Real JEV Destroy](docs/M9.md) — Real JEV Destroy protocol.
 - [M12 — Real JEV Choice Quality](docs/M12.md) — live selector-quality protocol.
 - [M13 — Real JEV End-to-End Validation](docs/M13.md) — paired live end-to-end protocol.
+- [M19 — Real JEV with K=2](docs/M19_REAL_JEV_K2.md) — fixed K=2 live experiment protocol.
 - [JEV State-Aware Context](docs/JEV_CONTEXT.md) — state-derived candidate context contract.
 - [.env.example](.env.example) — configuration template without secrets.
 
