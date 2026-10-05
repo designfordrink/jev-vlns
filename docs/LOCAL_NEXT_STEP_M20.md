@@ -488,16 +488,6 @@ M20 is complete when all of the following are true:
 - [ ] No prompt/neighborhood/Repair tuning is introduced.
 - [ ] The next research step is selected from the M20 outcome, not assumed in advance.
 
-## Final instruction to the local agent
-
-Treat M20 as a **methodological correction**, not as another attempt to make JEV win.
-
-The key question is:
-
-> **Was JEV actually making bad decisions, or were we measuring its decisions against the wrong downstream landscape?**
-
-Only after this question is answered should the project move to state-representation/context diagnostics, exact small-instance reference solving, or a JEV Top-K → deterministic rollout architecture.
-
 ## 9A. Exact Expected-Value Landscape protocol
 
 ### 9A.1 Experimental unit
@@ -631,3 +621,13 @@ Before the live experiment, tests must verify:
 - EV never appears in the JEV request/context;
 - flat landscapes produce Top-1=true, regret=0 and normalized regret=0;
 - the first 32 samples of N=64 equal the N=32 samples, and the first 64 of N=128 equal N=64.
+
+## Final instruction to the local agent
+
+Treat M20 as a **methodological correction**, not as another attempt to make JEV win.
+
+The key question is:
+
+> **Was JEV actually making bad decisions, or were we measuring its decisions against the wrong downstream landscape?**
+
+Only after this question is answered should the project move to state-representation/context diagnostics, exact small-instance reference solving, or a JEV Top-K → deterministic rollout architecture.
