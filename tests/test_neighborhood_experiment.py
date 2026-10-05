@@ -9,6 +9,8 @@ def test_neighborhood_size_changes_candidate_space_without_changing_protocol():
     assert k1.evaluation.feasible
     assert k3.evaluation.feasible
     assert k1.iterations == k3.iterations == 5
+    assert k1.mean_destroy_candidates > 0
+    assert k3.mean_destroy_candidates >= k1.mean_destroy_candidates
 
 
 def test_neighborhood_size_comparison_is_reproducible():
@@ -19,3 +21,11 @@ def test_neighborhood_size_comparison_is_reproducible():
     b = random_vlns(state, **kwargs)
     assert a.state == b.state
     assert a.evaluation == b.evaluation
+    assert a.iterations == b.iterations
+    assert a.mean_destroy_candidates == b.mean_destroy_candidates
+
+
+def test_zero_iteration_budget_is_reported_as_zero():
+    state = make_seeded_state(42)
+    result = random_vlns(state, seed=7, iterations=0, destroy_max_stacks=3)
+    assert result.iterations == 0

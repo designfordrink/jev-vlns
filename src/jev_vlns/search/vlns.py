@@ -205,7 +205,7 @@ def guided_vlns(
     return VlnsResult(
         state=final_state,
         evaluation=evaluate(final_state),
-        iterations=iterations,
+        iterations=n,
         best_projected_objective=current_score,
         search_state=current,
         mean_destroy_candidates=sum(destroy_counts) / n if n else 0.0,
@@ -229,6 +229,7 @@ def random_vlns(
     rng = random.Random(seed)
     current = initial_state
     current_score = projected_objective(current)
+    destroy_counts: list[int] = []
 
     for _ in range(iterations):
         destroys = generate_destroy_candidates(
@@ -239,6 +240,7 @@ def random_vlns(
         )
         if not destroys:
             break
+        destroy_counts.append(len(destroys))
         destroy = rng.choice(destroys)
         partial = apply_destroy(current, destroy)
         repairs = generate_repair_candidates(partial)
@@ -252,12 +254,14 @@ def random_vlns(
             current_score = candidate_score
 
     final_state = _finish_greedily(current)
+    n = len(destroy_counts)
     return VlnsResult(
         state=final_state,
         evaluation=evaluate(final_state),
-        iterations=iterations,
-        search_state=current,
+        iterations=n,
         best_projected_objective=current_score,
+        search_state=current,
+        mean_destroy_candidates=sum(destroy_counts) / n if n else 0.0,
     )
 
 
