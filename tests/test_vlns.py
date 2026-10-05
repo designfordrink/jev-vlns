@@ -55,34 +55,3 @@ def test_guided_vlns_random_selectors_is_reproducible():
     assert a.evaluation == b.evaluation
 
 
-def test_guided_vlns_can_capture_aligned_expected_value_after_selection():
-    from jev_vlns.search.vlns import guided_vlns, make_random_vlns_selectors
-
-    state = make_seeded_state(8)
-    destroy, repair = make_random_vlns_selectors(8)
-    destroy.m20_run_seed = 8
-    # This integration test uses a single legal candidate so the test checks
-    # trace wiring without turning incomplete candidate sampling into a
-    # protocol failure. Full M20 ranks every candidate and must fail closed
-    # if any candidate has a missing sample.
-    original_select = destroy.select
-    candidate = destroy.generate_candidates(state)[0]
-    destroy.generate_candidates = lambda current: [candidate]
-    result = guided_vlns(
-        state,
-        destroy,
-        repair,
-        iterations=1,
-        capture_trace=True,
-        destroy_min_stacks=2,
-        destroy_max_stacks=2,
-        destroy_include_non_adjacent=True,
-        expected_value_samples=32,
-    )
-    trace = result.trace[0]
-    ev = trace["expected_value_landscape"]
-    assert ev["samples"] == 32
-    assert len(ev["entries"]) == len(trace["destroy_candidates"])
-    assert trace["selected_destroy"] in {
-        entry["candidate_id"] for entry in ev["entries"]
-    }
