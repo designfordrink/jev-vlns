@@ -97,10 +97,10 @@ def render_report(result: dict) -> str:
     ]
     for mode, row in result["summary"].items():
         runs = [r for r in result["per_run"] if str(r["mode"]) == mode]
-        decisions = sum(r["decisions"] for r in runs)
-        calls = sum(r["jev_stats"]["calls"] for r in runs)
-        fallbacks = sum(r["jev_stats"]["fallbacks"] for r in runs)
-        cost = sum(r["jev_stats"]["cost_usd"] for r in runs)
+        decisions = sum(r.get("decisions", 0.0) for r in runs)
+        calls = sum(r.get("jev_stats", {}).get("calls", 0) for r in runs)
+        fallbacks = sum(r.get("jev_stats", {}).get("fallbacks", 0) for r in runs)
+        cost = sum(r.get("jev_stats", {}).get("cost_usd", 0.0) for r in runs)
         lines.append(
             f"| {mode} | {row['runs']} | {decisions:.0f} | "
             f"{row['top1_rate']:.3f} | {row['mean_rank']:.2f} | "
