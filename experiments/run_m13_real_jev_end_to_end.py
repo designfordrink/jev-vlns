@@ -42,7 +42,16 @@ def summarize(rows: list[dict]) -> dict:
     }
 
 
-def render_markdown(rows: list[dict], summary: dict, *, seeds: list[int], iterations: int, destroy_min_stacks: int, destroy_max_stacks: int, destroy_include_non_adjacent: bool) -> str:
+def render_markdown(
+    rows: list[dict],
+    summary: dict,
+    *,
+    seeds: list[int],
+    iterations: int,
+    destroy_min_stacks: int = 2,
+    destroy_max_stacks: int = 2,
+    destroy_include_non_adjacent: bool = True,
+) -> str:
     lines = [
         "# M13 — Real JEV End-to-End Validation",
         "",
