@@ -61,6 +61,13 @@ def test_guided_vlns_can_capture_aligned_expected_value_after_selection():
     state = make_seeded_state(8)
     destroy, repair = make_random_vlns_selectors(8)
     destroy.m20_run_seed = 8
+    # This integration test uses a single legal candidate so the test checks
+    # trace wiring without turning incomplete candidate sampling into a
+    # protocol failure. Full M20 ranks every candidate and must fail closed
+    # if any candidate has a missing sample.
+    original_select = destroy.select
+    candidate = destroy.generate_candidates(state)[0]
+    destroy.generate_candidates = lambda current: [candidate]
     result = guided_vlns(
         state,
         destroy,
