@@ -18,7 +18,7 @@ from collections.abc import Sequence
 
 from jev_vlns.container_stack.state import ContainerStackState
 from .destroy import DestroyCandidate, apply_destroy
-from .repair import generate_repair_candidates
+from .repair import apply_repair, generate_repair_candidates
 from .vlns import _finish_greedily, _repair_randomly
 
 
@@ -117,9 +117,7 @@ def _evaluate_candidate(
             )
             if not choices:
                 raise ValueError("Random Repair produced no legal complete repair")
-            repaired = __import__(
-                "jev_vlns.search.repair", fromlist=["apply_repair"]
-            ).apply_repair(partial, choices)
+            repaired = apply_repair(partial, choices)
             finished = _finish_greedily(repaired)
             if not finished.is_complete:
                 raise ValueError("greedy completion did not finish")
