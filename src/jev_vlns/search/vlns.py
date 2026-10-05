@@ -16,8 +16,6 @@ class VlnsResult:
     evaluation: object
     iterations: int
     best_projected_objective: float
-    # Best virtual search configuration before deterministic final completion.
-    # This is not an executable plan from the initial state.
     search_state: ContainerStackState | None = None
     mean_destroy_candidates: float = 0.0
     mean_repair_candidates: float = 0.0
@@ -110,9 +108,18 @@ def _repair_snapshot(candidate: RepairCandidate) -> dict:
     }
 
 
-def guided_vlns(initial_state: ContainerStackState, destroy_selector, repair_selector,
-                *, iterations: int = 100, capture_trace: bool = False) -> VlnsResult:
-    """VLNS with injectable selectors and an optional observational replay trace."""
+def guided_vlns(
+    initial_state: ContainerStackState,
+    destroy_selector,
+    repair_selector,
+    *,
+    iterations: int = 100,
+    capture_trace: bool = False,
+    destroy_min_stacks: int = 1,
+    destroy_max_stacks: int = 2,
+    destroy_include_non_adjacent: bool = True,
+) -> VlnsResult:
+    """VLNS with configurable variable-size Destroy neighborhoods."""
     from .oracle import best_repair_plan, destroy_landscape
 
     current = initial_state
@@ -124,7 +131,12 @@ def guided_vlns(initial_state: ContainerStackState, destroy_selector, repair_sel
     trace: list[dict] = []
 
     for iteration in range(iterations):
-        destroys = generate_destroy_candidates(current)
+        destroys = generate_destroy_candidates(
+            current,
+            min_stacks=destroy_min_stacks,
+            max_stacks=destroy_max_stacks,
+            include_non_adjacent=destroy_include_non_adjacent,
+        )
         if not destroys:
             break
 
@@ -195,6 +207,7 @@ def guided_vlns(initial_state: ContainerStackState, destroy_selector, repair_sel
         evaluation=evaluate(final_state),
         iterations=iterations,
         best_projected_objective=current_score,
+        search_state=current,
         mean_destroy_candidates=sum(destroy_counts) / n if n else 0.0,
         mean_repair_candidates=sum(repair_counts) / len(repair_counts) if repair_counts else 0.0,
         mean_destroy_regret=sum(destroy_regrets) / len(destroy_regrets) if destroy_regrets else 0.0,
@@ -203,14 +216,27 @@ def guided_vlns(initial_state: ContainerStackState, destroy_selector, repair_sel
     )
 
 
-def random_vlns(initial_state: ContainerStackState, *, seed: int = 0, iterations: int = 100) -> VlnsResult:
+def random_vlns(
+    initial_state: ContainerStackState,
+    *,
+    seed: int = 0,
+    iterations: int = 100,
+    destroy_min_stacks: int = 1,
+    destroy_max_stacks: int = 2,
+    destroy_include_non_adjacent: bool = True,
+) -> VlnsResult:
     """Random Destroy + Random Repair VLNS baseline."""
     rng = random.Random(seed)
     current = initial_state
     current_score = projected_objective(current)
 
     for _ in range(iterations):
-        destroys = generate_destroy_candidates(current)
+        destroys = generate_destroy_candidates(
+            current,
+            min_stacks=destroy_min_stacks,
+            max_stacks=destroy_max_stacks,
+            include_non_adjacent=destroy_include_non_adjacent,
+        )
         if not destroys:
             break
         destroy = rng.choice(destroys)
@@ -227,7 +253,9 @@ def random_vlns(initial_state: ContainerStackState, *, seed: int = 0, iterations
 
     final_state = _finish_greedily(current)
     return VlnsResult(
-        state=final_state, evaluation=evaluate(final_state), iterations=iterations,
+        state=final_state,
+        evaluation=evaluate(final_state),
+        iterations=iterations,
         search_state=current,
         best_projected_objective=current_score,
     )
