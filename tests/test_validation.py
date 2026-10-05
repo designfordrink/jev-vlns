@@ -1,4 +1,5 @@
-from jev_vlns.container_stack.actions import legal_actions
+from jev_vlns.container_stack.actions import apply_legal_action, legal_actions
+from jev_vlns.selectors.greedy import GreedySelector
 from jev_vlns.container_stack.state import make_seeded_state
 from jev_vlns.search.validation import (
     assert_state_conservation,
@@ -17,9 +18,8 @@ def test_complete_plan_replay_is_independently_validated():
             break
         candidates = legal_actions(current)
         assert candidates, "seeded state should be solvable by legal actions"
-        action = candidates[0]
+        action = GreedySelector().select(current, candidates)
         actions.append(action)
-        from jev_vlns.container_stack.actions import apply_legal_action
         current = apply_legal_action(current, action)
 
     result = validate_complete_plan(state, actions)
