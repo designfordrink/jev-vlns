@@ -20,7 +20,12 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from jev_vlns.container_stack.state import make_seeded_state
-from jev_vlns.evaluation.benchmark import _jev_state
+from jev_vlns.evaluation.benchmark import (
+    JEV_DESTROY_OBJECTIVE,
+    JEV_DESTROY_QUESTION,
+    _jev_destroy_candidate_context,
+    _jev_state,
+)
 from jev_vlns.evaluation.choice_quality import choice_metrics, summarize_choice_metrics
 from jev_vlns.evaluation.replay import replay_document
 from jev_vlns.jev.client import JevClient
@@ -43,15 +48,11 @@ def run_one(seed: int, iterations: int, config: JevConfig) -> dict:
             client,
             random_destroy.select,
             task="destroy",
-            question=(
-                "Choose which legal neighborhood to destroy before repair. "
-                "Prefer the neighborhood that is most likely to reduce the "
-                "future number of total container moves. Choose exactly one "
-                "candidate from the provided criteria."
-            ),
-            objective="minimize total moves after deterministic greedy repair",
+            question=JEV_DESTROY_QUESTION,
+            objective=JEV_DESTROY_OBJECTIVE,
             min_confidence=config.min_confidence,
             state_serializer=_jev_state,
+            candidate_serializer=_jev_destroy_candidate_context,
         )
     )
 
