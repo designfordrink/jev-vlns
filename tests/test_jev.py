@@ -37,10 +37,43 @@ def test_config_does_not_require_secrets(monkeypatch):
     monkeypatch.delenv("JEV_API_KEY", raising=False)
     monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    # Isolate from the optional ~/.claude/jev.env credentials file, otherwise the
+    # result depends on the machine running the tests.
+    monkeypatch.setattr(
+        "jev_vlns.jev.config._read_env_file",
+        lambda path: {},
+    )
 
     config = JevConfig.from_environment()
     assert config.api_key is None
     assert config.model == "jev-latest"
+
+
+def test_config_reads_optional_credentials_file(monkeypatch):
+    monkeypatch.delenv("JEV_API_KEY", raising=False)
+    monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+
+    monkeypatch.setattr("jev_vlns.jev.config._read_env_file", lambda path: {
+        "OPENROUTER_API_KEY": "file-key",
+        "TYPESAFE_BASE_URL": "https://openrouter.ai/api",
+        "JEV_MODEL": "typesafe/jev-1.13",
+    })
+
+    config = JevConfig.from_environment()
+    assert config.api_key == "file-key"
+    assert config.base_url == "https://openrouter.ai/api"
+    assert config.model == "typesafe/jev-1.13"
+
+
+def test_environment_takes_precedence_over_credentials_file(monkeypatch):
+    monkeypatch.setenv("OPENROUTER_API_KEY", "env-key")
+    monkeypatch.setattr("jev_vlns.jev.config._read_env_file", lambda path: {
+        "OPENROUTER_API_KEY": "file-key",
+    })
+
+    config = JevConfig.from_environment()
+    assert config.api_key == "env-key"
 
 
 
