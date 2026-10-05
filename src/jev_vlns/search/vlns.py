@@ -118,6 +118,7 @@ def guided_vlns(
     destroy_min_stacks: int = 1,
     destroy_max_stacks: int = 2,
     destroy_include_non_adjacent: bool = True,
+    expected_value_samples: int = 0,
 ) -> VlnsResult:
     """VLNS with configurable variable-size Destroy neighborhoods."""
     from .oracle import best_repair_plan, destroy_landscape
@@ -147,6 +148,19 @@ def guided_vlns(
         destroy_counts.append(len(destroys))
 
         destroy = destroy_selector.select(current, destroys)
+        expected_value = None
+        expected_value_rank = None
+        if expected_value_samples:
+            from .expected_value import expected_value_landscape, rank_landscape
+            ev_landscape = expected_value_landscape(
+                current,
+                destroys,
+                run_seed=getattr(destroy_selector, "m20_run_seed", 0),
+                iteration=iteration,
+                samples=expected_value_samples,
+            )
+            expected_value = ev_landscape
+            expected_value_rank = rank_landscape(ev_landscape)
         selected_destroy_score = next(
             entry.score for entry in destroy_land if entry.candidate.id == destroy.id
         )
@@ -189,6 +203,28 @@ def guided_vlns(
                 "destroy_candidates": [_candidate_snapshot(c) for c in destroys],
                 "destroy_scores": {e.candidate.id: e.score for e in destroy_land},
                 "selected_destroy": destroy.id,
+                "expected_value_landscape": (
+                    {
+                        "samples": expected_value.samples,
+                        "state_key": expected_value.state_key,
+                        "entries": [
+                            {
+                                "candidate_id": entry.candidate.id,
+                                "mean": entry.mean,
+                                "median": entry.median,
+                                "std": entry.std,
+                                "min": entry.minimum,
+                                "max": entry.maximum,
+                                "p10": entry.p10,
+                                "p90": entry.p90,
+                                "final_moves": list(entry.final_moves),
+                            }
+                            for entry in expected_value.entries
+                        ],
+                        "ranking": expected_value_rank,
+                    }
+                    if expected_value is not None else None
+                ),
                 "best_destroy_score": best_destroy_score,
                 "selected_destroy_score": selected_destroy_score,
                 "removed": list(partial.removed),
