@@ -497,3 +497,137 @@ The key question is:
 > **Was JEV actually making bad decisions, or were we measuring its decisions against the wrong downstream landscape?**
 
 Only after this question is answered should the project move to state-representation/context diagnostics, exact small-instance reference solving, or a JEV Top-K → deterministic rollout architecture.
+
+## 9A. Exact Expected-Value Landscape protocol
+
+### 9A.1 Experimental unit
+
+The fundamental unit is one frozen JEV decision state: one outer run seed at one VLNS iteration. All legal K=2 Destroy candidates at that state form one matched candidate set.
+
+For each decision state and each candidate, run exactly N independent Random-Repair samples followed by the existing deterministic greedy completion. With N=64, a decision containing C candidates produces C × 64 candidate-level samples.
+
+The primary experiment is 5 seeds × 50 iterations = exactly 250 decision states, assuming no protocol failure. The actual total number of candidate-level samples must be reported from the artifact.
+
+### 9A.2 Causal ordering
+
+For every decision the order is mandatory:
+
+1. Freeze the current decision state.
+2. Generate the legal K=2 candidates in the existing order.
+3. Build and send the unchanged JEV request.
+4. Receive and validate exactly one selected candidate.
+5. Only after the JEV response, evaluate every candidate with Random Repair + Greedy Completion.
+6. Aggregate candidate samples and calculate EV/rank/regret.
+7. Continue the actual solver from the original state using the JEV-selected candidate.
+
+EV results must never be available to JEV. This is a diagnostic evaluator, not part of the decision path.
+
+### 9A.3 Random-seed derivation
+
+Do not use process-global RNG state. Define:
+
+- `run_seed`: outer experiment seed, 1..5;
+- `iteration`: zero-based VLNS iteration;
+- `state_key`: deterministic identifier of the frozen decision state;
+- `sample_index`: zero-based sample index, 0..N-1.
+
+Derive each sample seed deterministically from:
+
+```text
+sample_seed = uint64(SHA256(
+  "m20-ev-v1|" + run_seed + "|" + iteration + "|" + state_key + "|" + sample_index
+)[0:16])
+```
+
+The exact encoding must be unambiguous. **Candidate ID must not be included in the seed.**
+
+This creates a matched/common-random-number design: candidate A and candidate B at the same decision use the same sample-index seeds. Each candidate/sample still receives a fresh RNG instance, so evaluation order cannot affect results.
+
+If the existing Random Repair implementation cannot accept an explicit RNG, introduce the smallest boundary change needed to make the diagnostic evaluator deterministic without changing M19 solver semantics.
+
+### 9A.4 Sample execution
+
+For each candidate and sample:
+
+1. Start from an immutable copy of the frozen decision state.
+2. Apply exactly that Destroy candidate.
+3. Initialize a fresh RNG from the prescribed sample seed.
+4. Execute exactly one existing Random Repair outcome.
+5. Run the existing deterministic greedy completion.
+6. Validate the executable plan.
+7. Record the resulting `final_moves`.
+
+No diagnostic evaluation may mutate the state used by the actual solver.
+
+### 9A.5 Aggregation
+
+For candidate d with outcomes x1..xN, calculate:
+
+```text
+mean   = sum(x) / N
+median = median(x)
+std    = sample standard deviation(x)
+min    = min(x)
+max    = max(x)
+p10    = 10th percentile(x)
+p90    = 90th percentile(x)
+```
+
+The raw sample vector must be retained in JSON when practical so aggregate numbers are auditable.
+
+A candidate is rankable only when all N requested samples are successful and produce valid executable move counts. Do not silently impute, drop, or replace failed samples. A missing sample in the primary run is a protocol failure unless a predeclared missing-data rule is added before execution.
+
+Rank candidates by ascending mean EV. Lower is better.
+
+### 9A.6 Tie rule
+
+Use a predeclared tolerance of `1e-9` when comparing floating-point mean EVs. Candidates within that tolerance of the minimum are tied for best.
+
+Do not break a tie by candidate ID for Top-1 correctness. Every tied-best candidate counts as Top-1.
+
+If all candidates are tied, regret and normalized regret are both zero.
+
+### 9A.7 Choice-quality metrics
+
+For selected candidate j:
+
+```text
+best_EV = min(candidate_mean_EV)
+worst_EV = max(candidate_mean_EV)
+regret = selected_EV - best_EV
+normalized_regret = regret / (worst_EV - best_EV)
+```
+
+If `worst_EV == best_EV`, normalized regret = 0.
+
+Use competition ranking: equal EVs share the same rank. Report Top-1, mean rank, median rank, mean regret, median regret, mean normalized regret and median normalized regret.
+
+### 9A.8 N stability protocol
+
+N=64 is the primary setting. Run N=32 and N=128 as stability checks when feasible.
+
+All three runs must use the same decision states and the same seed schedule. N=32 must be the first 32 samples of N=64; N=64 must be the first 64 samples of N=128.
+
+Compare per decision:
+
+- best-candidate identity 32→64 and 64→128;
+- selected-candidate rank;
+- selected-candidate regret;
+- Top-1 status;
+- complete candidate ordering where meaningful.
+
+Report best-candidate stability and the fraction of decisions whose JEV Top-1 status changes between N values. Do not treat N=32/64/128 as unrelated Monte-Carlo experiments.
+
+### 9A.9 Mandatory evaluator tests
+
+Before the live experiment, tests must verify:
+
+- same state + candidate + seed schedule + N gives identical raw samples;
+- evaluating candidates A,B,C gives identical results to C,A,B;
+- changing candidate A does not alter candidate B's result;
+- the input state is unchanged after evaluation;
+- each reported `final_moves` equals the executable completion move count;
+- evaluator works without JEV credentials;
+- EV never appears in the JEV request/context;
+- flat landscapes produce Top-1=true, regret=0 and normalized regret=0;
+- the first 32 samples of N=64 equal the N=32 samples, and the first 64 of N=128 equal N=64.
