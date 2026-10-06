@@ -2,8 +2,13 @@ from jev_vlns.container_stack.state import make_seeded_state
 from jev_vlns.evaluation.context_variants import context_variant_names, serializers_for_variant
 
 
-def test_m21_has_exactly_three_controlled_variants():
-    assert context_variant_names() == ("A_compact", "B_full_state", "C_consequence")
+def test_m21_has_four_controlled_variants():
+    assert context_variant_names() == (
+        "A_compact",
+        "B_full_state",
+        "C_consequence",
+        "D_decision_ready",
+    )
 
 
 def test_m21_variants_do_not_expose_downstream_scores():
@@ -15,7 +20,9 @@ def test_m21_variants_do_not_expose_downstream_scores():
     forbidden = ("oracle", "regret", "expected_value", "final_moves", "score")
     for name in context_variant_names():
         state_serializer, candidate_serializer = serializers_for_variant(name)
-        rendered = repr((state_serializer(state), candidate_serializer(state, candidate))).lower()
+        rendered = repr(
+            (state_serializer(state), candidate_serializer(state, candidate))
+        ).lower()
         assert all(token not in rendered for token in forbidden)
 
 
@@ -42,4 +49,31 @@ def test_m21_full_state_expands_stack_container_metadata():
         "destination" in container and "priority" in container
         for stack in payload["stacks"]
         for container in stack["containers"]
+    )
+
+
+def test_m21_decision_ready_precomputes_local_relations():
+    state = make_seeded_state(4)
+    from jev_vlns.search.destroy import generate_destroy_candidates
+    candidate = generate_destroy_candidates(
+        state, min_stacks=2, max_stacks=2, include_non_adjacent=True
+    )[0]
+    state_serializer, candidate_serializer = serializers_for_variant(
+        "D_decision_ready"
+    )
+    state_payload = state_serializer(state)
+    candidate_payload = candidate_serializer(state, candidate)
+
+    assert "immediately_deliverable_top_count" in state_payload
+    assert all(
+        "matches_stack_destination" in stack["top"]
+        for stack in state_payload["stacks"]
+        if stack["top"] is not None
+    )
+    assert '"removed_match_count":' in candidate_payload
+    assert '"exposed_match_count":' in candidate_payload
+    assert '"exposed_priority_sum":' in candidate_payload
+    assert all(
+        token not in candidate_payload.lower()
+        for token in ("expected_value", "regret", "final_moves", "oracle", "score")
     )
