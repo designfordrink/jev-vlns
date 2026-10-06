@@ -39,6 +39,10 @@ class CandidateEV:
     p90: float
     feasible_count: int
     error_count: int
+    # Index-aligned stream: one entry per requested sample, in sample-index
+    # order, with None where the sample failed. ``final_moves`` is the filtered
+    # (successes-only) view and therefore not aligned with ``sample_seeds``.
+    outcomes: tuple[int | None, ...] = ()
 
     @property
     def complete(self) -> bool:
@@ -105,6 +109,7 @@ def _evaluate_candidate(
     partial = apply_destroy(state, candidate)
     repairs = generate_repair_candidates(partial)
     outcomes: list[int] = []
+    stream: list[int | None] = []
     errors = 0
 
     for seed in sample_seeds:
@@ -121,9 +126,12 @@ def _evaluate_candidate(
             finished = _finish_greedily(repaired)
             if not finished.is_complete:
                 raise ValueError("greedy completion did not finish")
-            outcomes.append(int(finished.moves))
+            moves = int(finished.moves)
+            outcomes.append(moves)
+            stream.append(moves)
         except Exception:
             errors += 1
+            stream.append(None)
 
     return CandidateEV(
         candidate=candidate,
@@ -138,6 +146,7 @@ def _evaluate_candidate(
         p90=_percentile(outcomes, 0.90),
         feasible_count=len(outcomes),
         error_count=errors,
+        outcomes=tuple(stream),
     )
 
 
@@ -176,10 +185,29 @@ def rank_landscape(
     *,
     tolerance: float = 1e-9,
 ) -> dict[str, object]:
-    """Return aligned best-candidate, rank and regret diagnostics."""
-    valid = [entry for entry in landscape.entries if entry.complete]
-    if len(valid) != len(landscape.entries):
-        raise ValueError("cannot rank an incomplete landscape")
+    """Return aligned best-candidate, rank and regret diagnostics.
+
+    Random Repair can hand the deterministic greedy completion a configuration
+    it cannot finish, so a candidate may have fewer valid samples than
+    requested. Such candidates are ranked on the samples that did complete,
+    and their counts are reported alongside the ranking so failures stay
+    visible instead of being silently dropped.
+
+    A candidate with no valid sample is unrankable and raises, because its
+    expected value is undefined rather than merely noisy.
+    """
+    unrankable = [
+        entry.candidate.id
+        for entry in landscape.entries
+        if entry.feasible_count == 0
+    ]
+    if unrankable:
+        raise ValueError(
+            "cannot rank a landscape with candidates that have no valid "
+            f"samples: {sorted(unrankable)}"
+        )
+
+    valid = [entry for entry in landscape.entries if entry.feasible_count > 0]
 
     values = [entry.mean for entry in valid]
     best = min(values)
@@ -220,4 +248,13 @@ def rank_landscape(
             for entry in valid
         },
         "ordered_candidate_ids": [entry.candidate.id for entry in ordered],
+        "sample_counts": {
+            entry.candidate.id: entry.feasible_count
+            for entry in landscape.entries
+        },
+        "error_counts": {
+            entry.candidate.id: entry.error_count
+            for entry in landscape.entries
+        },
+        "total_errors": sum(entry.error_count for entry in landscape.entries),
     }

@@ -72,8 +72,32 @@ def test_m20_prefix_consistency_across_sample_sizes():
     n64 = expected_value_landscape(state, candidates, run_seed=5, iteration=6, samples=64)
     n128 = expected_value_landscape(state, candidates, run_seed=5, iteration=6, samples=128)
     for i in range(2):
-        assert n64.entries[i].final_moves[:32] == n32.entries[i].final_moves
-        assert n128.entries[i].final_moves[:64] == n64.entries[i].final_moves
+        # The index-aligned stream is the authoritative prefix check: it keeps
+        # failed samples in place, so it holds even where final_moves (successes
+        # only) would shift positions.
+        assert n64.entries[i].outcomes[:32] == n32.entries[i].outcomes
+        assert n128.entries[i].outcomes[:64] == n64.entries[i].outcomes
+        assert n32.entries[i].sample_seeds == n64.entries[i].sample_seeds[:32]
+        assert len(n64.entries[i].outcomes) == 64
+
+
+def test_m20_outcomes_stream_stays_aligned_with_seeds():
+    """A failed sample must not shift later outcomes in the stored stream."""
+    state = make_seeded_state(11)
+    candidates = generate_destroy_candidates(
+        state, min_stacks=2, max_stacks=2, include_non_adjacent=True
+    )
+    landscape = expected_value_landscape(
+        state, candidates, run_seed=11, iteration=0, samples=64
+    )
+    for entry in landscape.entries:
+        assert len(entry.outcomes) == 64
+        assert len(entry.sample_seeds) == 64
+        assert entry.feasible_count == sum(v is not None for v in entry.outcomes)
+        assert entry.error_count == sum(v is None for v in entry.outcomes)
+        assert entry.final_moves == tuple(
+            v for v in entry.outcomes if v is not None
+        )
 
 
 def test_m20_ranking_handles_flat_landscape():
