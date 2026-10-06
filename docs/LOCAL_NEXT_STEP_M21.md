@@ -23,7 +23,7 @@ All variants use the same:
 - Same fallback and confidence threshold.
 - EV/Oracle information is computed after the JEV response and never sent to JEV.
 
-Expected: 3 x 5 x 50 = 750 decisions.
+Expected: 4 x 5 x 50 = 1000 decisions.
 
 ## Variants
 
@@ -44,6 +44,14 @@ The candidate context explicitly shows each affected stack before Destroy, the t
 This tests whether mentally simulating the immediate Destroy effect is the bottleneck.
 
 No variant contains EV, Oracle scores, regret, future evaluation results, or final outcomes.
+
+### D_decision_ready — arithmetic-light context
+
+This variant is added because JEV is known to be weak at explicit counting and relational arithmetic. The environment therefore precomputes small, local, decision-relevant facts such as whether a top/exposed container matches its stack destination and the count of such matches.
+
+This is intentionally **not** the EV objective. It contains no repair outcome, Oracle score, regret, final move count, or future evaluation. The hypothesis is narrower: if JEV cannot reliably perform the simple bookkeeping required to compare candidates, removing that arithmetic burden may improve selection quality.
+
+D is therefore the most direct test of the distinction between **information insufficiency** and **reasoning/computation insufficiency**.
 
 ## Metrics
 
