@@ -1,0 +1,12 @@
+{
+  "decisions": 250,
+  "flat_landscapes": 0,
+  "mean_normalized_regret": 0.5143247962162955,
+  "mean_rank": 4.408,
+  "mean_regret": 0.7798971915725831,
+  "median_normalized_regret": 0.5309405040648043,
+  "median_rank": 4.0,
+  "median_regret": 0.9375,
+  "top1": 47,
+  "top1_rate": 0.188
+}
