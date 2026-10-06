@@ -43,3 +43,19 @@ def test_m21_full_state_expands_stack_container_metadata():
         for stack in payload["stacks"]
         for container in stack["containers"]
     )
+
+
+def test_m21_decision_ready_precomputes_local_relations_not_ev():
+    state = make_seeded_state(4)
+    state_serializer, candidate_serializer = serializers_for_variant("D_decision_ready")
+    from jev_vlns.search.destroy import generate_destroy_candidates
+    candidate = generate_destroy_candidates(
+        state, min_stacks=2, max_stacks=2, include_non_adjacent=True
+    )[0]
+    state_payload = state_serializer(state)
+    candidate_payload = candidate_serializer(state, candidate)
+    assert "immediately_deliverable_top_count" in state_payload
+    assert "exposed_match_count" in candidate_payload
+    assert "removed_match_count" in candidate_payload
+    assert "expected_value" not in repr((state_payload, candidate_payload)).lower()
+    assert "regret" not in repr((state_payload, candidate_payload)).lower()
