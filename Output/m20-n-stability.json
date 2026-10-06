@@ -1,0 +1,21 @@
+{
+  "comparisons": {
+    "n32_to_n64": {
+      "best_candidate_changed": 37,
+      "best_candidate_stable": 213,
+      "best_candidate_stable_fraction": 0.852,
+      "decisions_compared": 250,
+      "prefix_consistent": 250,
+      "prefix_violations": 0
+    },
+    "n64_to_n128": {
+      "best_candidate_changed": 31,
+      "best_candidate_stable": 219,
+      "best_candidate_stable_fraction": 0.876,
+      "decisions_compared": 250,
+      "prefix_consistent": 250,
+      "prefix_violations": 0
+    }
+  },
+  "tolerance": 1e-09
+}
