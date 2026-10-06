@@ -64,7 +64,7 @@ Until the physical reconfiguration path from an initial state to a VLNS virtual 
 
 See [Objective Semantics](docs/OBJECTIVE_SEMANTICS.md) and [Research Remediation Plan](docs/RESEARCH_REMEDIATION_PLAN.md).
 
-## Current research stage: M20
+## Current research stage: M21
 
 M18 established the protocol for variable Destroy neighborhoods and produced a matched 10-seed comparison:
 
@@ -90,9 +90,11 @@ M19 result:
 
 This is the first strong negative live result. It is **not** explained by API failure, infeasibility or fallback. Real JEV made legal successful choices, but those choices were poor on the tested K=2 candidate landscape.
 
-The next step is therefore **M20 — JEV Decision Failure Analysis**. M20 is diagnostic only: it records every decision and tests positional, formatting, feature and objective/context hypotheses without changing the M19 protocol.
+The M20 Expected-Value Landscape analysis aligned the offline target with the actual Random-Repair downstream process. Real JEV remained substantially below the aligned target, so M21 isolates the next hypothesis: whether JEV lacks useful state representation or struggles with elementary counting/bookkeeping.
 
-See [M20 Local Execution Handoff](docs/LOCAL_NEXT_STEP_M20.md).
+M21 compares four frozen-context variants: **A_compact** (M20 control), **B_full_state**, **C_consequence**, and **D_decision_ready**. Only the state/candidate serialization changes; model, prompt, K=2 candidate set, Random Repair, greedy completion, EV evaluator, seeds and sample budget remain fixed.
+
+See [M21 Local Execution Handoff](docs/LOCAL_NEXT_STEP_M21.md). The live run requires the user's local JEV/OpenRouter credentials and is intentionally not part of CI.
 
 ## Quick start
 
@@ -213,7 +215,8 @@ jev-vlns/
 │   ├── EXPERIMENTS.md
 │   ├── M9.md
 │   ├── M19_REAL_JEV_K2.md
-│   └── LOCAL_NEXT_STEP_M20.md
+│   ├── LOCAL_NEXT_STEP_M20.md
+│   └── LOCAL_NEXT_STEP_M21.md
 ├── src/jev_vlns/
 ├── tests/
 └── experiments/
