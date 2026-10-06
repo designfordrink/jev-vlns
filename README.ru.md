@@ -450,7 +450,10 @@ Selector не должен знать URL, API key или детали HTTP-пр
 - [CI Guide](docs/CI.md) — GitHub Actions и локальное воспроизведение проверок.
 - [Experiments Guide](docs/EXPERIMENTS.md) — методология benchmark, seeds, Oracle и regret.
 - [TRD](docs/TRD.md) — архитектурные требования и исходный технический дизайн.
-- [M9 — Real JEV Destroy](docs/M9.md) — текущий live-эксперимент.
+- [M9 — Real JEV Destroy](docs/M9.md) — исходный live-протокол.
+- [M19 — Real JEV K=2](docs/M19_REAL_JEV_K2.md) — отрицательный live-результат.
+- [M20 — Expected-Value Landscape](docs/LOCAL_NEXT_STEP_M20.md) — выравнивание downstream objective.
+- [M21 — State Representation Diagnostics](docs/LOCAL_NEXT_STEP_M21.md) — текущий диагностический эксперимент.
 - [.env.example](.env.example) — шаблон конфигурации без секретов.
 
 ## Roadmap
@@ -487,14 +490,16 @@ M12 Learned local policy
 M13 Railroad Blocking Problem
 ```
 
-Следующий исследовательский этап после M9 — **Visualization / Replay**: сделать решения JEV визуально проверяемыми и подготовить воспроизводимое исследование последовательности локальных выборов.
+Следующий шаг после M21 определяется его результатами. Если B/C/D не улучшат качество выбора, наиболее сильной следующей гипотезой станет отказ от требования JEV сразу выбирать один лучший кандидат и переход к **ranking/proposal → Top-K → deterministic rollout/evaluator**. Если один из вариантов улучшит выбор, сначала будет изолирован именно выигравший элемент контекста.
 
 ## Дополнительные документы
 
 Если нужно понять проект глубже, рекомендуется читать в таком порядке:
 
 1. этот README;
-2. [docs/M9.md](docs/M9.md);
+2. [docs/M21 — State Representation Diagnostics](docs/LOCAL_NEXT_STEP_M21.md);
+3. [docs/M20 — Expected-Value Landscape](docs/LOCAL_NEXT_STEP_M20.md);
+4. [docs/M19_REAL_JEV_K2.md](docs/M19_REAL_JEV_K2.md);
 3. [docs/EXPERIMENTS.md](docs/EXPERIMENTS.md);
 4. [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md);
 5. [docs/CI.md](docs/CI.md);
